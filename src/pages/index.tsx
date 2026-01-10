@@ -1,5 +1,8 @@
 import Head from "next/head";
 import styled, { createGlobalStyle, ThemeProvider, DefaultTheme } from "styled-components";
+import { useEffect } from "react";
+import { useUser } from "@/contexts/UserContext";
+import Splash from "@/components/Splash";
 
 // Extend DefaultTheme to include our custom properties
 declare module 'styled-components' {
@@ -461,6 +464,44 @@ const FooterText = styled.p`
 `;
 
 export default function Home() {
+  const { user, isLoading } = useUser();
+
+  // Signal to Farcaster that the app is ready
+  useEffect(() => {
+    const callReady = async () => {
+      // Only run on client side
+      if (typeof window === 'undefined') return;
+      
+      try {
+        // Dynamically import the SDK (client-side only)
+        const { sdk } = await import("@farcaster/miniapp-sdk");
+        
+        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
+          console.log('✅ [Index] Calling sdk.actions.ready()');
+          await sdk.actions.ready();
+          console.log('✅ [Index] Successfully called ready()');
+        } else {
+          console.warn('⚠️ [Index] SDK not available or ready() not found');
+        }
+      } catch (error) {
+        console.error('❌ [Index] Error calling sdk.actions.ready():', error);
+      }
+    };
+
+    // Call ready after component mounts
+    callReady();
+  }, []);
+
+  // Show splash screen while loading or for authenticated users
+  if (isLoading || user) {
+    return (
+      <ThemeProvider theme={theme}>
+        <GlobalStyle />
+        <Splash user={user} isLoading={isLoading} />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <GlobalStyle />
