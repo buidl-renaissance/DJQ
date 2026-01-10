@@ -327,7 +327,7 @@ export default function EventDetailPage() {
       } else {
         // Select
         // Check explicitly for true/1 to handle SQLite integer booleans
-        const allowConsecutive = event?.allowConsecutiveSlots === true || event?.allowConsecutiveSlots === 1;
+        const allowConsecutive = event?.allowConsecutiveSlots === true || (event?.allowConsecutiveSlots as unknown) === 1;
         if (!allowConsecutive) {
           // Replace selection
           return [slotId];
