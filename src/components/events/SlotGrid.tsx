@@ -71,8 +71,11 @@ export default function SlotGrid({
     // If nothing selected, any available slot can be selected
     if (selectedSlotIds.length === 0) return true;
 
+    // Handle SQLite integer booleans (0/1) - check explicitly for true/1
+    const isConsecutiveAllowed = allowConsecutive === true || (allowConsecutive as unknown) === 1;
+    
     // If consecutive not allowed, only one slot can be selected
-    if (!allowConsecutive) return false;
+    if (!isConsecutiveAllowed) return false;
 
     // Check if we've hit the max
     if (selectedSlotIds.length >= maxConsecutive) return false;

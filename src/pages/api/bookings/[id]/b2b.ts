@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getBookingById } from '@/db/bookings';
 import { createB2BRequest } from '@/db/bookings';
+import { db } from '@/db/drizzle';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export default async function handler(
   req: NextApiRequest,
@@ -17,16 +20,39 @@ export default async function handler(
   }
 
   try {
-    // TODO: Get authenticated user ID from session
-    const userId = req.headers['x-user-id'] as string;
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
+    const { username, targetUsername } = req.body;
+    
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+    
+    if (!targetUsername) {
+      return res.status(400).json({ error: 'Target username is required' });
     }
 
-    const { targetUserId } = req.body;
-    if (!targetUserId) {
-      return res.status(400).json({ error: 'Target user ID required' });
+    // Look up users by username
+    const userResults = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+
+    if (userResults.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
+
+    const targetUserResults = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, targetUsername))
+      .limit(1);
+
+    if (targetUserResults.length === 0) {
+      return res.status(404).json({ error: 'Target user not found' });
+    }
+
+    const userId = userResults[0].id;
+    const targetUserId = targetUserResults[0].id;
 
     const booking = await getBookingById(id);
     if (!booking) {

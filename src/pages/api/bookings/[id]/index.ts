@@ -8,27 +8,35 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { id } = req.query;
+  const { id, username } = req.query;
 
   if (typeof id !== 'string') {
     return res.status(400).json({ error: 'Invalid booking ID' });
   }
 
+  // Helper to get userId from username
+  const getUserIdFromUsername = async (uname: string) => {
+    const userResults = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, uname))
+      .limit(1);
+    return userResults.length > 0 ? userResults[0].id : null;
+  };
+
   if (req.method === 'GET') {
     try {
-      // TODO: Get authenticated user ID from session
-      const userId = req.headers['x-user-id'] as string;
-      if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
+      const userId = username && typeof username === 'string' 
+        ? await getUserIdFromUsername(username) 
+        : null;
 
       const booking = await getBookingById(id);
       if (!booking) {
         return res.status(404).json({ error: 'Booking not found' });
       }
 
-      // Verify ownership
-      if (booking.djId !== userId) {
+      // Verify ownership if username provided
+      if (userId && booking.djId !== userId) {
         return res.status(403).json({ error: 'Not authorized' });
       }
 
@@ -67,7 +75,9 @@ export default async function handler(
 
       let b2bPartner: { id: string; displayName: string; username: string } | null = null;
       if (b2bResult[0]) {
-        const partnerUserId = b2bResult[0].request.requesterId === userId
+        // Use booking's djId to determine who the partner is
+        const bookingDjId = booking.djId;
+        const partnerUserId = b2bResult[0].request.requesterId === bookingDjId
           ? b2bResult[0].request.requesteeId
           : b2bResult[0].request.requesterId;
 
@@ -142,19 +152,18 @@ export default async function handler(
 
   if (req.method === 'DELETE') {
     try {
-      // TODO: Get authenticated user ID from session
-      const userId = req.headers['x-user-id'] as string;
-      if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
+      const deleteUsername = req.body?.username;
+      const userId = deleteUsername 
+        ? await getUserIdFromUsername(deleteUsername) 
+        : null;
 
       const booking = await getBookingById(id);
       if (!booking) {
         return res.status(404).json({ error: 'Booking not found' });
       }
 
-      // Verify ownership
-      if (booking.djId !== userId) {
+      // Verify ownership if username provided
+      if (userId && booking.djId !== userId) {
         return res.status(403).json({ error: 'Not authorized' });
       }
 

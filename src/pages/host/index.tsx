@@ -4,6 +4,31 @@ import styled from 'styled-components';
 import AppLayout from '@/components/layout/AppLayout';
 import { useUser } from '@/contexts/UserContext';
 
+// Helper to get username from Renaissance/Farcaster context
+const getSDKUsername = async (): Promise<string | null> => {
+  if (typeof window === 'undefined') return null;
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  
+  if (win.__renaissanceAuthContext?.user?.username) {
+    return win.__renaissanceAuthContext.user.username;
+  }
+  
+  if (win.farcaster?.context) {
+    try {
+      const ctx = await Promise.resolve(win.farcaster.context);
+      if (ctx?.user?.username) {
+        return ctx.user.username;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  
+  return null;
+};
+
 const PageHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -275,16 +300,23 @@ export default function HostPage() {
   const { user, isLoading: userLoading } = useUser();
   const [events, setEvents] = useState<HostEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sdkUsername, setSdkUsername] = useState<string | null>(null);
+
+  // Get username from SDK on mount
+  useEffect(() => {
+    getSDKUsername().then(setSdkUsername);
+  }, []);
 
   useEffect(() => {
-    if (!user) {
+    const username = sdkUsername || user?.username;
+    if (!username) {
       setLoading(false);
       return;
     }
 
     async function fetchEvents() {
       try {
-        const response = await fetch('/api/host/events');
+        const response = await fetch(`/api/host/events?username=${encodeURIComponent(username!)}`);
         if (response.ok) {
           const data = await response.json();
           setEvents(data.events || []);
@@ -297,7 +329,7 @@ export default function HostPage() {
     }
 
     fetchEvents();
-  }, [user]);
+  }, [user, sdkUsername]);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {

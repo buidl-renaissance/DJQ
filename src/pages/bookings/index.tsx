@@ -5,6 +5,31 @@ import BookingCard, { BookingCardProps } from '@/components/bookings/BookingCard
 import B2BRequestCard, { B2BRequestCardProps } from '@/components/bookings/B2BRequestCard';
 import { useUser } from '@/contexts/UserContext';
 
+// Helper to get username from Renaissance/Farcaster context
+const getSDKUsername = async (): Promise<string | null> => {
+  if (typeof window === 'undefined') return null;
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  
+  if (win.__renaissanceAuthContext?.user?.username) {
+    return win.__renaissanceAuthContext.user.username;
+  }
+  
+  if (win.farcaster?.context) {
+    try {
+      const ctx = await Promise.resolve(win.farcaster.context);
+      if (ctx?.user?.username) {
+        return ctx.user.username;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  
+  return null;
+};
+
 const PageHeader = styled.div`
   padding: 1.5rem 1rem 1rem;
 `;
@@ -135,9 +160,16 @@ export default function BookingsPage() {
   const [b2bRequests, setB2BRequests] = useState<B2BRequestData[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [sdkUsername, setSdkUsername] = useState<string | null>(null);
+
+  // Get username from SDK on mount
+  useEffect(() => {
+    getSDKUsername().then(setSdkUsername);
+  }, []);
 
   useEffect(() => {
-    if (!user) {
+    const username = sdkUsername || user?.username;
+    if (!username) {
       setLoading(false);
       return;
     }
@@ -145,8 +177,8 @@ export default function BookingsPage() {
     async function fetchData() {
       try {
         const [bookingsRes, b2bRes] = await Promise.all([
-          fetch('/api/bookings'),
-          fetch('/api/b2b/pending'),
+          fetch(`/api/bookings?username=${encodeURIComponent(username!)}`),
+          fetch(`/api/b2b/pending?username=${encodeURIComponent(username!)}`),
         ]);
 
         if (bookingsRes.ok) {
@@ -166,15 +198,18 @@ export default function BookingsPage() {
     }
 
     fetchData();
-  }, [user]);
+  }, [user, sdkUsername]);
 
   const handleB2BAccept = async (requestId: string) => {
+    const username = sdkUsername || user?.username;
+    if (!username) return;
+    
     setActionLoading(requestId);
     try {
       const response = await fetch(`/api/b2b/${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'accept' }),
+        body: JSON.stringify({ action: 'accept', username }),
       });
 
       if (response.ok) {
@@ -188,12 +223,15 @@ export default function BookingsPage() {
   };
 
   const handleB2BDecline = async (requestId: string) => {
+    const username = sdkUsername || user?.username;
+    if (!username) return;
+    
     setActionLoading(requestId);
     try {
       const response = await fetch(`/api/b2b/${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'decline' }),
+        body: JSON.stringify({ action: 'decline', username }),
       });
 
       if (response.ok) {

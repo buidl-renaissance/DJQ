@@ -5,6 +5,31 @@ import AppLayout from '@/components/layout/AppLayout';
 import SlotGrid, { TimeSlot } from '@/components/events/SlotGrid';
 import { useUser } from '@/contexts/UserContext';
 
+// Helper to get username from Renaissance/Farcaster context
+const getSDKUsername = async (): Promise<string | null> => {
+  if (typeof window === 'undefined') return null;
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  
+  if (win.__renaissanceAuthContext?.user?.username) {
+    return win.__renaissanceAuthContext.user.username;
+  }
+  
+  if (win.farcaster?.context) {
+    try {
+      const ctx = await Promise.resolve(win.farcaster.context);
+      if (ctx?.user?.username) {
+        return ctx.user.username;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  
+  return null;
+};
+
 const PageContainer = styled.div`
   padding: 1rem;
 `;
@@ -248,6 +273,12 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sdkUsername, setSdkUsername] = useState<string | null>(null);
+
+  // Get username from SDK on mount
+  useEffect(() => {
+    getSDKUsername().then(setSdkUsername);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -295,11 +326,18 @@ export default function EventDetailPage() {
         return prev.filter((id) => id !== slotId);
       } else {
         // Select
-        if (!event?.allowConsecutiveSlots) {
+        // Check explicitly for true/1 to handle SQLite integer booleans
+        const allowConsecutive = event?.allowConsecutiveSlots === true || event?.allowConsecutiveSlots === 1;
+        if (!allowConsecutive) {
           // Replace selection
           return [slotId];
         }
-        // Add to selection
+        // Add to selection (check max)
+        const maxSlots = event?.maxConsecutiveSlots || 1;
+        if (prev.length >= maxSlots) {
+          // At max, replace with new selection
+          return [slotId];
+        }
         return [...prev, slotId];
       }
     });
@@ -312,10 +350,15 @@ export default function EventDetailPage() {
     setError(null);
 
     try {
+      const username = sdkUsername || user?.username;
+      if (!username) {
+        throw new Error('Please sign in to book slots');
+      }
+
       const response = await fetch(`/api/events/${id}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slotIds: selectedSlotIds }),
+        body: JSON.stringify({ slotIds: selectedSlotIds, username }),
       });
 
       if (!response.ok) {

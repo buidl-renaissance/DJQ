@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { bookSlots } from '@/db/bookings';
+import { db } from '@/db/drizzle';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,18 +19,28 @@ export default async function handler(
   }
 
   try {
-    const { slotIds } = req.body;
+    const { slotIds, username } = req.body;
 
     if (!Array.isArray(slotIds) || slotIds.length === 0) {
       return res.status(400).json({ error: 'No slots provided' });
     }
 
-    // TODO: Get authenticated user ID from session
-    const djId = req.headers['x-user-id'] as string;
-    if (!djId) {
-      return res.status(401).json({ error: 'Authentication required' });
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
     }
 
+    // Look up user by username
+    const userResults = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+
+    if (userResults.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const djId = userResults[0].id;
     const bookings = await bookSlots({ slotIds, djId });
 
     return res.status(201).json({ bookings });
