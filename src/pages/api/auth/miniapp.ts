@@ -14,18 +14,19 @@ export default async function handler(
   }
 
   try {
-    const { fid, username, displayName, pfpUrl } = req.body as {
+    const { fid, username, displayName, pfpUrl, renaissanceUserId } = req.body as {
       fid?: string;
       username?: string;
       displayName?: string;
       pfpUrl?: string;
+      renaissanceUserId?: string;
     };
 
     if (!fid) {
       return res.status(400).json({ error: 'fid is required' });
     }
 
-    console.log('🔐 [MINIAPP AUTH] Authenticating mini app user:', { fid, username, displayName });
+    console.log('🔐 [MINIAPP AUTH] Authenticating mini app user:', { fid, username, displayName, renaissanceUserId });
     console.log('🔐 [MINIAPP AUTH] Request headers:', {
       origin: req.headers.origin,
       referer: req.headers.referer,
