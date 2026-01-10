@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '@/db/drizzle';
-import { events, timeSlots, slotBookings } from '@/db/schema';
+import { events, timeSlots } from '@/db/schema';
 import { createEvent, publishEvent } from '@/db/events';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 export default async function handler(
   req: NextApiRequest,

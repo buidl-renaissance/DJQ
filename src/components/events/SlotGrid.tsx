@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import SlotChip, { SlotChipProps } from './SlotChip';
+import SlotChip from './SlotChip';
 
 const GridContainer = styled.div`
   display: flex;

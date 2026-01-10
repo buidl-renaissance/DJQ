@@ -49,7 +49,7 @@ const StatusBadge = styled.span<{ $status: string }>`
     $status === 'confirmed' ? 'rgba(57, 255, 20, 0.2)' : 'rgba(224, 224, 224, 0.1)'};
   color: ${({ $status, theme }) => 
     $status === 'confirmed' ? theme.colors.accent : 'rgba(224, 224, 224, 0.6)'};
-  border: 1px solid ${({ $status, theme }) => 
+  border: 1px solid ${({ $status }) => 
     $status === 'confirmed' ? 'rgba(57, 255, 20, 0.4)' : 'rgba(224, 224, 224, 0.2)'};
 `;
 

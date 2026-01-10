@@ -5,7 +5,6 @@ import {
   slotBookings,
   b2bRequests,
   timeSlots,
-  events,
   BookingStatus,
   B2BRequestStatus,
   B2BInitiator,

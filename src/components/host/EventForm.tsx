@@ -78,7 +78,7 @@ const Toggle = styled.button<{ $isActive: boolean }>`
   padding: 0.875rem 1rem;
   background-color: ${({ $isActive }) => 
     $isActive ? 'rgba(57, 255, 20, 0.1)' : 'rgba(0, 0, 0, 0.2)'};
-  border: 1px solid ${({ $isActive, theme }) => 
+  border: 1px solid ${({ $isActive }) => 
     $isActive ? 'rgba(57, 255, 20, 0.3)' : 'rgba(224, 224, 224, 0.1)'};
   border-radius: 8px;
   cursor: pointer;

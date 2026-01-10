@@ -60,7 +60,7 @@ const StatusBadge = styled.span<{ $status: string }>`
   letter-spacing: 1px;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
-  background-color: ${({ $status, theme }) => {
+  background-color: ${({ $status }) => {
     switch ($status) {
       case 'published':
         return 'rgba(57, 255, 20, 0.2)';
@@ -82,7 +82,7 @@ const StatusBadge = styled.span<{ $status: string }>`
         return 'rgba(224, 224, 224, 0.6)';
     }
   }};
-  border: 1px solid ${({ $status, theme }) => {
+  border: 1px solid ${({ $status }) => {
     switch ($status) {
       case 'published':
         return 'rgba(57, 255, 20, 0.4)';

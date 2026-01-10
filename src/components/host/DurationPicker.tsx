@@ -22,7 +22,7 @@ const Option = styled.button<{ $isSelected: boolean }>`
   color: ${({ $isSelected, theme }) => 
     $isSelected ? theme.colors.accent : 'rgba(224, 224, 224, 0.6)'};
   
-  ${({ $isSelected, theme }) => $isSelected && `
+  ${({ $isSelected }) => $isSelected && `
     box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
   `}
   
