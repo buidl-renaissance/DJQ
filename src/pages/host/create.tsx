@@ -1,9 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import styled from 'styled-components';
 import AppLayout from '@/components/layout/AppLayout';
 import EventForm, { EventFormData } from '@/components/host/EventForm';
 import { useUser } from '@/contexts/UserContext';
+
+// Helper to get username from Renaissance/Farcaster context
+const getSDKUsername = async (): Promise<string | null> => {
+  if (typeof window === 'undefined') return null;
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  
+  // Try __renaissanceAuthContext
+  if (win.__renaissanceAuthContext?.user?.username) {
+    return win.__renaissanceAuthContext.user.username;
+  }
+  
+  // Try window.farcaster.context
+  if (win.farcaster?.context) {
+    try {
+      const ctx = await Promise.resolve(win.farcaster.context);
+      if (ctx?.user?.username) {
+        return ctx.user.username;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  
+  return null;
+};
 
 const PageContainer = styled.div`
   padding: 1rem;
@@ -72,6 +99,12 @@ export default function CreateEventPage() {
   const { user, isLoading } = useUser();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sdkUsername, setSdkUsername] = useState<string | null>(null);
+
+  // Get username from SDK context on mount
+  useEffect(() => {
+    getSDKUsername().then(setSdkUsername);
+  }, []);
 
   const handleSubmit = async (data: EventFormData, publish: boolean) => {
     setLoading(true);
@@ -83,15 +116,17 @@ export default function CreateEventPage() {
       const startTime = new Date(`${data.eventDate}T${data.startTime}`);
       const endTime = new Date(`${data.eventDate}T${data.endTime}`);
 
-      if (!user?.username) {
-        throw new Error('User must be logged in with a username');
+      // Get username from SDK context or user context
+      const username = sdkUsername || user?.username;
+      if (!username) {
+        throw new Error('Username not available');
       }
 
       const response = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: user.username,
+          username,
           title: data.title,
           description: data.description || null,
           eventDate: eventDate.toISOString(),
