@@ -420,12 +420,102 @@ const ChevronRight = () => (
   </svg>
 );
 
+// Debug display styled component
+const DebugPanel = styled.div`
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  max-height: 40vh;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid ${({ theme }) => theme.colors.accent};
+  border-radius: 8px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.accent};
+  z-index: 9999;
+  
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  
+  h4 {
+    color: ${({ theme }) => theme.colors.secondary};
+    margin: 0 0 8px 0;
+    font-size: 12px;
+  }
+`;
+
 export default function DashboardPage() {
   const { user, isLoading } = useUser();
   
   const [showSplash, setShowSplash] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
   const [splashPhase, setSplashPhase] = useState<'loading' | 'welcome' | 'transitioning'>('loading');
+  
+  // Debug: capture SDK context
+  const [sdkContext, setSdkContext] = useState<Record<string, unknown> | null>(null);
+  
+  useEffect(() => {
+    const captureContext = async () => {
+      if (typeof window === 'undefined') return;
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any;
+      const contextData: Record<string, unknown> = {
+        timestamp: new Date().toISOString(),
+        userFromContext: user,
+        isLoading,
+      };
+      
+      // Check window.farcaster.context
+      if (win.farcaster?.context) {
+        try {
+          const ctx = await win.farcaster.context;
+          contextData.farcasterContext = ctx;
+        } catch (e) {
+          contextData.farcasterContextError = String(e);
+        }
+      }
+      
+      // Check __renaissanceAuthContext
+      if (win.__renaissanceAuthContext) {
+        contextData.renaissanceAuthContext = win.__renaissanceAuthContext;
+      }
+      
+      // Check getRenaissanceAuth
+      if (typeof win.getRenaissanceAuth === 'function') {
+        try {
+          contextData.getRenaissanceAuth = win.getRenaissanceAuth();
+        } catch (e) {
+          contextData.getRenaissanceAuthError = String(e);
+        }
+      }
+      
+      // Check early detection
+      if (win.__FARCASTER_USER__) {
+        contextData.earlyUser = win.__FARCASTER_USER__;
+      }
+      
+      // All relevant window keys
+      contextData.windowKeys = Object.keys(win).filter((k: string) => 
+        k.toLowerCase().includes('farcaster') || 
+        k.toLowerCase().includes('renaissance') ||
+        k.startsWith('__FARCASTER')
+      );
+      
+      setSdkContext(contextData);
+    };
+    
+    captureContext();
+    // Re-capture every 2 seconds
+    const interval = setInterval(captureContext, 2000);
+    return () => clearInterval(interval);
+  }, [user, isLoading]);
 
   useEffect(() => {
     // After auth loading completes or 2 seconds (whichever is later), show welcome
@@ -544,6 +634,14 @@ export default function DashboardPage() {
               )}
             </WelcomeMessage>
           </SplashContent>
+          
+          {/* Debug Panel */}
+          {sdkContext && (
+            <DebugPanel>
+              <h4>🔍 SDK Context Debug</h4>
+              <pre>{JSON.stringify(sdkContext, null, 2)}</pre>
+            </DebugPanel>
+          )}
         </SplashContainer>
       </ThemeProvider>
     );
@@ -615,6 +713,14 @@ export default function DashboardPage() {
             </ArrowIcon>
           </ActionCard>
         </QuickActions>
+        
+        {/* Debug Panel */}
+        {sdkContext && (
+          <DebugPanel>
+            <h4>🔍 SDK Context Debug</h4>
+            <pre>{JSON.stringify(sdkContext, null, 2)}</pre>
+          </DebugPanel>
+        )}
       </DashboardContainer>
     </AppLayout>
   );
