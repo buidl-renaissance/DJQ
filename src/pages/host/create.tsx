@@ -83,10 +83,15 @@ export default function CreateEventPage() {
       const startTime = new Date(`${data.eventDate}T${data.startTime}`);
       const endTime = new Date(`${data.eventDate}T${data.endTime}`);
 
+      if (!user?.username) {
+        throw new Error('User must be logged in with a username');
+      }
+
       const response = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          username: user.username,
           title: data.title,
           description: data.description || null,
           eventDate: eventDate.toISOString(),

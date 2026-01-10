@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '@/db/drizzle';
-import { events, timeSlots } from '@/db/schema';
+import { events, timeSlots, users } from '@/db/schema';
 import { createEvent, publishEvent } from '@/db/events';
 import { eq, inArray } from 'drizzle-orm';
 
@@ -53,6 +53,7 @@ export default async function handler(
   if (req.method === 'POST') {
     try {
       const {
+        username,
         title,
         description,
         eventDate,
@@ -65,9 +66,22 @@ export default async function handler(
         publish,
       } = req.body;
 
-      // TODO: Get authenticated user ID from session
-      // For now, use a placeholder
-      const hostId = req.headers['x-user-id'] as string || 'placeholder-user-id';
+      if (!username) {
+        return res.status(400).json({ error: 'Username is required' });
+      }
+
+      // Look up user by username
+      const userResults = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, username))
+        .limit(1);
+
+      if (userResults.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const hostId = userResults[0].id;
 
       const event = await createEvent({
         hostId,
