@@ -68,7 +68,7 @@ const StatusBadge = styled.span<{ $status: string }>`
         return 'rgba(224, 224, 224, 0.6)';
     }
   }};
-  border: 1px solid ${({ $status, theme }) => {
+  border: 1px solid ${({ $status }) => {
     switch ($status) {
       case 'published':
         return 'rgba(57, 255, 20, 0.4)';
@@ -314,7 +314,7 @@ interface EventData {
 export default function ManageEventPage() {
   const router = useRouter();
   const { id } = router.query;
-  const { user } = useUser();
+  useUser(); // Ensure user context is available
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [slots, setSlots] = useState<SlotData[]>([]);

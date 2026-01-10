@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
 import styled, { keyframes, ThemeProvider } from 'styled-components';
 import Head from 'next/head';
 import AppLayout from '@/components/layout/AppLayout';
@@ -314,7 +313,7 @@ const ActionCard = styled.a<{ $accent?: 'green' | 'pink' }>`
   gap: 1rem;
   padding: 1rem;
   background-color: rgba(26, 26, 26, 0.7);
-  border: 1px solid ${({ $accent, theme }) => 
+  border: 1px solid ${({ $accent }) => 
     $accent === 'pink' ? 'rgba(255, 45, 149, 0.2)' : 'rgba(57, 255, 20, 0.2)'};
   border-radius: 12px;
   text-decoration: none;
@@ -327,7 +326,7 @@ const ActionCard = styled.a<{ $accent?: 'green' | 'pink' }>`
       $accent === 'pink' 
         ? '0 4px 20px rgba(255, 45, 149, 0.2)'
         : '0 4px 20px rgba(57, 255, 20, 0.2)'};
-    border-color: ${({ $accent, theme }) => 
+    border-color: ${({ $accent }) => 
       $accent === 'pink' ? 'rgba(255, 45, 149, 0.4)' : 'rgba(57, 255, 20, 0.4)'};
   }
 `;
@@ -336,7 +335,7 @@ const ActionIcon = styled.div<{ $accent?: 'green' | 'pink' }>`
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: ${({ $accent, theme }) => 
+  background: ${({ $accent }) => 
     $accent === 'pink' 
       ? 'linear-gradient(135deg, rgba(255, 45, 149, 0.2), rgba(255, 45, 149, 0.1))'
       : 'linear-gradient(135deg, rgba(57, 255, 20, 0.2), rgba(57, 255, 20, 0.1))'};
@@ -423,7 +422,6 @@ const ChevronRight = () => (
 
 export default function DashboardPage() {
   const { user, isLoading } = useUser();
-  const router = useRouter();
   
   const [showSplash, setShowSplash] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);

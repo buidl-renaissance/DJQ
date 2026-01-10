@@ -97,7 +97,7 @@ const CalendarIcon = () => (
 );
 
 // Event type with slot counts for display
-interface EventWithSlots extends EventCardProps {}
+type EventWithSlots = EventCardProps;
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventWithSlots[]>([]);

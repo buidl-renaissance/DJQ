@@ -127,7 +127,7 @@ const MusicIcon = () => (
   </svg>
 );
 
-interface B2BRequestData extends Omit<B2BRequestCardProps, 'onAccept' | 'onDecline' | 'loading'> {}
+type B2BRequestData = Omit<B2BRequestCardProps, 'onAccept' | 'onDecline' | 'loading'>;
 
 export default function BookingsPage() {
   const { user, isLoading: userLoading } = useUser();
