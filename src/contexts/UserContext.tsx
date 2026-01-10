@@ -27,10 +27,43 @@ const isValidUser = (user: SDKUser | null | undefined): boolean => {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+const USER_STORAGE_KEY = 'djq_user';
+
+// Helper to get user from localStorage
+const getStoredUser = (): User | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(USER_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
+// Helper to store user in localStorage
+const storeUser = (user: User | null) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (user) {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    }
+  } catch {
+    // Storage might be unavailable
+  }
+};
+
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize from localStorage for immediate retrieval
+  const [user, setUser] = useState<User | null>(() => getStoredUser());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync user state to localStorage whenever it changes
+  useEffect(() => {
+    storeUser(user);
+  }, [user]);
 
   // Function to authenticate user from SDK context
   const authenticateFromSDK = async (sdkUser: SDKUser) => {
