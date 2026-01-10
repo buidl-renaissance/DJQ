@@ -189,6 +189,123 @@ const ClearButton = styled.button`
   margin-top: 0.5rem;
 `;
 
+// Slot count selector for multi-slot booking
+const SlotCountSelector = styled.div`
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: rgba(57, 255, 20, 0.05);
+  border: 1px solid rgba(57, 255, 20, 0.2);
+  border-radius: 8px;
+`;
+
+const SlotCountLabel = styled.div`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(224, 224, 224, 0.7);
+  margin-bottom: 0.75rem;
+`;
+
+const SlotCountButtons = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const SlotCountButton = styled.button<{ $isActive: boolean }>`
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.9rem;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  ${({ $isActive, theme }) => $isActive ? `
+    background-color: ${theme.colors.accent};
+    color: ${theme.colors.background};
+    border: 1px solid ${theme.colors.accent};
+    box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
+  ` : `
+    background-color: rgba(0, 0, 0, 0.2);
+    color: rgba(224, 224, 224, 0.7);
+    border: 1px solid rgba(224, 224, 224, 0.1);
+    
+    &:hover {
+      border-color: rgba(57, 255, 20, 0.3);
+      color: ${theme.colors.accent};
+    }
+  `}
+`;
+
+const SlotCountDuration = styled.span`
+  font-size: 0.7rem;
+  opacity: 0.7;
+  display: block;
+  margin-top: 0.25rem;
+`;
+
+// Window selection for multi-slot mode
+const WindowGrid = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+`;
+
+const WindowCard = styled.button<{ $isSelected: boolean; $isAvailable: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-radius: 8px;
+  cursor: ${({ $isAvailable }) => $isAvailable ? 'pointer' : 'not-allowed'};
+  transition: all 0.2s ease;
+  
+  ${({ $isSelected, $isAvailable, theme }) => {
+    if (!$isAvailable) {
+      return `
+        background-color: rgba(224, 224, 224, 0.05);
+        border: 1px solid rgba(224, 224, 224, 0.1);
+        color: rgba(224, 224, 224, 0.3);
+      `;
+    }
+    if ($isSelected) {
+      return `
+        background-color: rgba(57, 255, 20, 0.2);
+        border: 1px solid ${theme.colors.accent};
+        color: ${theme.colors.accent};
+        box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+      `;
+    }
+    return `
+      background-color: rgba(57, 255, 20, 0.05);
+      border: 1px solid rgba(57, 255, 20, 0.2);
+      color: ${theme.colors.accent};
+      
+      &:hover {
+        background-color: rgba(57, 255, 20, 0.1);
+        border-color: rgba(57, 255, 20, 0.4);
+      }
+    `;
+  }}
+`;
+
+const WindowTime = styled.div`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 1rem;
+  font-weight: 700;
+`;
+
+const WindowStatus = styled.div`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+`;
+
 const LoadingContainer = styled.div`
   display: flex;
   justify-content: center;
@@ -274,11 +391,51 @@ export default function EventDetailPage() {
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sdkUsername, setSdkUsername] = useState<string | null>(null);
+  const [selectedSlotCount, setSelectedSlotCount] = useState<number>(1);
 
   // Get username from SDK on mount
   useEffect(() => {
     getSDKUsername().then(setSdkUsername);
   }, []);
+
+  // Check if multi-slot mode is enabled
+  const isMultiSlotEnabled = event && (
+    event.allowConsecutiveSlots === true || 
+    (event.allowConsecutiveSlots as unknown) === 1
+  ) && event.maxConsecutiveSlots > 1;
+
+  // Calculate available windows based on selected slot count
+  const getAvailableWindows = () => {
+    if (!isMultiSlotEnabled || selectedSlotCount === 1) return [];
+    
+    const windows: { startSlot: TimeSlot; endSlot: TimeSlot; slotIds: string[] }[] = [];
+    
+    // Sort by slot index
+    const sortedSlots = [...slots].sort((a, b) => a.slotIndex - b.slotIndex);
+    
+    // Find consecutive available windows
+    for (let i = 0; i <= sortedSlots.length - selectedSlotCount; i++) {
+      const windowSlots = sortedSlots.slice(i, i + selectedSlotCount);
+      
+      // Check if all slots in window are available and consecutive
+      const allAvailable = windowSlots.every(s => s.status === 'available');
+      const allConsecutive = windowSlots.every((s, idx) => 
+        idx === 0 || s.slotIndex === windowSlots[idx - 1].slotIndex + 1
+      );
+      
+      if (allAvailable && allConsecutive) {
+        windows.push({
+          startSlot: windowSlots[0],
+          endSlot: windowSlots[windowSlots.length - 1],
+          slotIds: windowSlots.map(s => s.id),
+        });
+      }
+    }
+    
+    return windows;
+  };
+
+  const availableWindows = getAvailableWindows();
 
   useEffect(() => {
     if (!id) return;
@@ -320,27 +477,36 @@ export default function EventDetailPage() {
   }, [id, user?.id]);
 
   const handleSlotClick = (slotId: string) => {
+    // In multi-slot mode with count > 1, use window selection instead
+    if (isMultiSlotEnabled && selectedSlotCount > 1) {
+      return; // Window selection is handled by handleWindowSelect
+    }
+    
     setSelectedSlotIds((prev) => {
       if (prev.includes(slotId)) {
         // Deselect
         return prev.filter((id) => id !== slotId);
       } else {
-        // Select
-        // Check explicitly for true/1 to handle SQLite integer booleans
-        const allowConsecutive = event?.allowConsecutiveSlots === true || (event?.allowConsecutiveSlots as unknown) === 1;
-        if (!allowConsecutive) {
-          // Replace selection
-          return [slotId];
-        }
-        // Add to selection (check max)
-        const maxSlots = event?.maxConsecutiveSlots || 1;
-        if (prev.length >= maxSlots) {
-          // At max, replace with new selection
-          return [slotId];
-        }
-        return [...prev, slotId];
+        // Select single slot
+        return [slotId];
       }
     });
+  };
+
+  const handleWindowSelect = (slotIds: string[]) => {
+    setSelectedSlotIds((prev) => {
+      // If same window is selected, deselect
+      if (prev.length === slotIds.length && prev.every(id => slotIds.includes(id))) {
+        return [];
+      }
+      // Select the window
+      return slotIds;
+    });
+  };
+
+  const handleSlotCountChange = (count: number) => {
+    setSelectedSlotCount(count);
+    setSelectedSlotIds([]); // Clear selection when changing slot count
   };
 
   const handleBook = async () => {
@@ -472,17 +638,68 @@ export default function EventDetailPage() {
         )}
 
         <Section>
-          <SectionTitle>Available Slots</SectionTitle>
-          <SlotGridContainer>
-            <SlotGrid
-              slots={slots}
-              selectedSlotIds={selectedSlotIds}
-              onSlotClick={handleSlotClick}
-              allowConsecutive={event.allowConsecutiveSlots}
-              maxConsecutive={event.maxConsecutiveSlots}
-              currentUserId={user?.id}
-            />
-          </SlotGridContainer>
+          <SectionTitle>Book Your Set</SectionTitle>
+          
+          {/* Slot count selector for multi-slot mode */}
+          {isMultiSlotEnabled && (
+            <SlotCountSelector>
+              <SlotCountLabel>Set Length</SlotCountLabel>
+              <SlotCountButtons>
+                {Array.from({ length: event.maxConsecutiveSlots }, (_, i) => i + 1).map(count => (
+                  <SlotCountButton
+                    key={count}
+                    $isActive={selectedSlotCount === count}
+                    onClick={() => handleSlotCountChange(count)}
+                  >
+                    {count} slot{count > 1 ? 's' : ''}
+                    <SlotCountDuration>
+                      {count * event.slotDurationMinutes} min
+                    </SlotCountDuration>
+                  </SlotCountButton>
+                ))}
+              </SlotCountButtons>
+            </SlotCountSelector>
+          )}
+
+          {/* Show windows when multi-slot count > 1 is selected */}
+          {isMultiSlotEnabled && selectedSlotCount > 1 ? (
+            <WindowGrid>
+              {availableWindows.length > 0 ? (
+                availableWindows.map((window, idx) => {
+                  const isSelected = selectedSlotIds.length === window.slotIds.length && 
+                    selectedSlotIds.every(id => window.slotIds.includes(id));
+                  return (
+                    <WindowCard
+                      key={idx}
+                      $isSelected={isSelected}
+                      $isAvailable={true}
+                      onClick={() => handleWindowSelect(window.slotIds)}
+                    >
+                      <WindowTime>
+                        {formatTime(window.startSlot.startTime.toISOString())} - {formatTime(window.endSlot.endTime.toISOString())}
+                      </WindowTime>
+                      <WindowStatus>
+                        {isSelected ? 'Selected' : 'Available'}
+                      </WindowStatus>
+                    </WindowCard>
+                  );
+                })
+              ) : (
+                <ErrorMessage>No available {selectedSlotCount}-slot windows</ErrorMessage>
+              )}
+            </WindowGrid>
+          ) : (
+            <SlotGridContainer>
+              <SlotGrid
+                slots={slots}
+                selectedSlotIds={selectedSlotIds}
+                onSlotClick={handleSlotClick}
+                allowConsecutive={false}
+                maxConsecutive={1}
+                currentUserId={user?.id}
+              />
+            </SlotGridContainer>
+          )}
 
           {selectedSlotIds.length > 0 && (
             <SelectionSummary>
