@@ -4,6 +4,31 @@ import styled from 'styled-components';
 import AppLayout from '@/components/layout/AppLayout';
 import { useUser } from '@/contexts/UserContext';
 
+// Helper to get username from Renaissance/Farcaster context
+const getSDKUsername = async (): Promise<string | null> => {
+  if (typeof window === 'undefined') return null;
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  
+  if (win.__renaissanceAuthContext?.user?.username) {
+    return win.__renaissanceAuthContext.user.username;
+  }
+  
+  if (win.farcaster?.context) {
+    try {
+      const ctx = await Promise.resolve(win.farcaster.context);
+      if (ctx?.user?.username) {
+        return ctx.user.username;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  
+  return null;
+};
+
 const PageContainer = styled.div`
   padding: 1rem;
 `;
@@ -314,20 +339,30 @@ interface EventData {
 export default function ManageEventPage() {
   const router = useRouter();
   const { id } = router.query;
-  useUser(); // Ensure user context is available
+  const { user } = useUser();
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [slots, setSlots] = useState<SlotData[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sdkUsername, setSdkUsername] = useState<string | null>(null);
+
+  // Get username from SDK on mount
+  useEffect(() => {
+    getSDKUsername().then(setSdkUsername);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
 
     async function fetchEvent() {
       try {
-        const response = await fetch(`/api/host/events/${id}`);
+        const username = sdkUsername || user?.username;
+        const url = username 
+          ? `/api/host/events/${id}?username=${encodeURIComponent(username)}`
+          : `/api/host/events/${id}`;
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error('Failed to fetch event');
         }
@@ -342,7 +377,7 @@ export default function ManageEventPage() {
     }
 
     fetchEvent();
-  }, [id]);
+  }, [id, sdkUsername, user?.username]);
 
   const handlePublish = async () => {
     setActionLoading(true);

@@ -8,16 +8,10 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { id } = req.query;
+  const { id, username } = req.query;
 
   if (typeof id !== 'string') {
     return res.status(400).json({ error: 'Invalid event ID' });
-  }
-
-  // TODO: Get authenticated user ID from session
-  const userId = req.headers['x-user-id'] as string;
-  if (!userId) {
-    return res.status(401).json({ error: 'Authentication required' });
   }
 
   if (req.method === 'GET') {
@@ -27,9 +21,17 @@ export default async function handler(
         return res.status(404).json({ error: 'Event not found' });
       }
 
-      // Verify ownership
-      if (event.hostId !== userId) {
-        return res.status(403).json({ error: 'Not authorized' });
+      // If username provided, verify ownership
+      if (username && typeof username === 'string') {
+        const userResults = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, username))
+          .limit(1);
+        
+        if (userResults.length > 0 && event.hostId !== userResults[0].id) {
+          return res.status(403).json({ error: 'Not authorized' });
+        }
       }
 
       // Get all slots with booking info
@@ -120,9 +122,17 @@ export default async function handler(
         return res.status(404).json({ error: 'Event not found' });
       }
 
-      // Verify ownership
-      if (event.hostId !== userId) {
-        return res.status(403).json({ error: 'Not authorized' });
+      // Verify ownership via username if provided
+      if (username && typeof username === 'string') {
+        const userResults = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, username))
+          .limit(1);
+        
+        if (userResults.length === 0 || event.hostId !== userResults[0].id) {
+          return res.status(403).json({ error: 'Not authorized' });
+        }
       }
 
       await deleteEvent(id);
