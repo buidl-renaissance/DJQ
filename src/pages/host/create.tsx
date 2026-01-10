@@ -69,15 +69,34 @@ const PageTitle = styled.h1`
   letter-spacing: 2px;
 `;
 
-const ErrorMessage = styled.div`
-  background-color: rgba(255, 45, 149, 0.1);
-  border: 1px solid rgba(255, 45, 149, 0.3);
+const FloatingError = styled.div`
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background-color: rgba(255, 45, 149, 0.95);
+  border: 1px solid ${({ theme }) => theme.colors.secondary};
   border-radius: 8px;
-  padding: 1rem;
-  color: ${({ theme }) => theme.colors.secondary};
+  padding: 0.75rem 1.5rem;
+  color: ${({ theme }) => theme.colors.contrast};
   font-family: ${({ theme }) => theme.fonts.body};
   font-size: 0.85rem;
-  margin-bottom: 1rem;
+  box-shadow: 0 4px 20px rgba(255, 45, 149, 0.4);
+  max-width: 90%;
+  text-align: center;
+  animation: slideDown 0.3s ease-out;
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
 `;
 
 const SignInPrompt = styled.div`
@@ -186,6 +205,7 @@ export default function CreateEventPage() {
 
   return (
     <AppLayout title="Create Event | DJ Tap-In Queue">
+      {error && <FloatingError>{error}</FloatingError>}
       <PageContainer>
         <BackButton onClick={() => router.push('/host')}>
           <ArrowLeftIcon />
@@ -193,8 +213,6 @@ export default function CreateEventPage() {
         </BackButton>
 
         <PageTitle>Create Event</PageTitle>
-
-        {error && <ErrorMessage>{error}</ErrorMessage>}
 
         <EventForm onSubmit={handleSubmit} loading={loading} />
       </PageContainer>
