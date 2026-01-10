@@ -21,8 +21,63 @@ interface SDKUser {
 const isValidUser = (user: SDKUser | null | undefined): boolean => {
   if (!user) return false;
   const fid = typeof user.fid === 'string' ? parseInt(user.fid, 10) : user.fid;
-  // Valid if has positive fid OR has renaissanceUserId OR has a username
-  return fid > 0 || !!user.renaissanceUserId || !!user.username;
+  // Valid if:
+  // - Has positive fid (Farcaster user)
+  // - Has any non-zero fid (negative fids are used for Renaissance-only accounts)
+  // - Has renaissanceUserId (Renaissance backend user ID)
+  // - Has a username
+  return fid !== 0 || !!user.renaissanceUserId || !!user.username;
+};
+
+// Helper to try getting user from all possible SDK sources
+const tryGetSDKUser = async (): Promise<SDKUser | null> => {
+  if (typeof window === 'undefined') return null;
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  
+  // Try window.farcaster.context
+  if (win.farcaster?.context) {
+    try {
+      const context = await Promise.resolve(win.farcaster.context);
+      if (context?.user && isValidUser(context.user)) {
+        console.log('🎯 Found user via window.farcaster.context');
+        return context.user;
+      }
+    } catch (e) {
+      console.log('⚠️ Error accessing farcaster.context:', e);
+    }
+  }
+  
+  // Try __renaissanceAuthContext
+  if (win.__renaissanceAuthContext?.user) {
+    const user = win.__renaissanceAuthContext.user;
+    if (isValidUser(user)) {
+      console.log('🎯 Found user via __renaissanceAuthContext');
+      return user;
+    }
+  }
+  
+  // Try getRenaissanceAuth()
+  if (typeof win.getRenaissanceAuth === 'function') {
+    try {
+      const context = win.getRenaissanceAuth();
+      if (context?.user && isValidUser(context.user)) {
+        console.log('🎯 Found user via getRenaissanceAuth()');
+        return context.user;
+      }
+    } catch (e) {
+      console.log('⚠️ Error calling getRenaissanceAuth:', e);
+    }
+  }
+  
+  // Try __FARCASTER_USER__
+  if (win.__FARCASTER_USER__ && isValidUser(win.__FARCASTER_USER__)) {
+    console.log('🎯 Found user via __FARCASTER_USER__');
+    return win.__FARCASTER_USER__;
+  }
+  
+  return null;
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -114,10 +169,50 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+    let mounted = true;
+    
     const fetchUser = async () => {
       try {
         setIsLoading(true);
         setError(null);
+        
+        // Quick check using our helper first
+        const quickUser = await tryGetSDKUser();
+        if (quickUser && mounted) {
+          console.log('🚀 Quick user detection succeeded:', quickUser);
+          const authenticated = await authenticateFromSDK(quickUser);
+          if (authenticated) {
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // Start polling for SDK context (context may load after page)
+        let pollAttempts = 0;
+        const maxPollAttempts = 20; // Poll for up to 10 seconds (500ms * 20)
+        
+        pollInterval = setInterval(async () => {
+          pollAttempts++;
+          console.log(`🔄 Polling for SDK user (attempt ${pollAttempts}/${maxPollAttempts})...`);
+          
+          const polledUser = await tryGetSDKUser();
+          if (polledUser && mounted) {
+            console.log('✅ Polling found user:', polledUser);
+            if (pollInterval) clearInterval(pollInterval);
+            const authenticated = await authenticateFromSDK(polledUser);
+            if (authenticated) {
+              setIsLoading(false);
+            }
+            return;
+          }
+          
+          if (pollAttempts >= maxPollAttempts) {
+            console.log('⏱️ Polling timed out, no user found');
+            if (pollInterval) clearInterval(pollInterval);
+            setIsLoading(false);
+          }
+        }, 500);
         
         // First, try to get user from Farcaster Mini App SDK context
         // The SDK provides user context when the mini app is opened in Warpcast
@@ -560,6 +655,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     fetchUser();
+    
+    return () => {
+      mounted = false;
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, []);
 
   return (
