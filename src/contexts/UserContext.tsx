@@ -17,12 +17,12 @@ interface SDKUser {
   renaissanceUserId?: number | string; // Renaissance-only accounts
 }
 
-// Helper to check if a user is valid (has Farcaster fid OR Renaissance account)
+// Helper to check if a user is valid (has Farcaster fid OR Renaissance account OR username)
 const isValidUser = (user: SDKUser | null | undefined): boolean => {
   if (!user) return false;
   const fid = typeof user.fid === 'string' ? parseInt(user.fid, 10) : user.fid;
-  // Valid if has positive fid OR has renaissanceUserId
-  return fid > 0 || !!user.renaissanceUserId;
+  // Valid if has positive fid OR has renaissanceUserId OR has a username
+  return fid > 0 || !!user.renaissanceUserId || !!user.username;
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -117,9 +117,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         username: rawUser.username as string | undefined,
                         displayName: (rawUser.displayName || rawUser.display_name) as string | undefined,
                         pfpUrl: (rawUser.pfpUrl || rawUser.pfp_url) as string | undefined,
+                        renaissanceUserId: rawUser.renaissanceUserId as number | string | undefined,
                       };
                       
-                      if (normalizedUser.fid) {
+                      if (isValidUser(normalizedUser)) {
                         console.log('✅ Found user in SDK context:', normalizedUser);
                         const authenticated = await authenticateFromSDK(normalizedUser);
                         if (authenticated) {
