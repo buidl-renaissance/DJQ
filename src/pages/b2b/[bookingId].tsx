@@ -74,7 +74,7 @@ const Card = styled.div`
   background: ${({ theme }) => theme.colors.dark};
   border: 1px solid ${({ theme }) => theme.colors.secondary};
   border-radius: 16px;
-  padding: 2.5rem;
+  padding: 1.5rem;
   max-width: 420px;
   width: 100%;
   position: relative;
@@ -544,7 +544,7 @@ export default function B2BInvitePage() {
             <B2BIcon>🎧</B2BIcon>
             <InviteTitle>B2B Invite</InviteTitle>
             <InviterName>
-              <strong>@{booking.booker?.username}</strong> wants to go B2B with you!
+              Go B2B with <strong>@{booking.booker?.username}</strong>
             </InviterName>
           </InviteHeader>
 
