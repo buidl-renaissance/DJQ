@@ -557,7 +557,14 @@ export default function EventDetailPage() {
   };
 
   const handleBook = async () => {
-    if (!user || selectedSlotIds.length === 0) return;
+    if (selectedSlotIds.length === 0) return;
+
+    // If user is not logged in, redirect to login with return URL
+    if (!user) {
+      const returnUrl = encodeURIComponent(`/events/${id}`);
+      router.push(`/login?redirect=${returnUrl}`);
+      return;
+    }
 
     setBooking(true);
     setError(null);
@@ -770,8 +777,8 @@ export default function EventDetailPage() {
               Clear
             </ClearButton>
           </BookingBarTop>
-          <BookButton onClick={handleBook} disabled={booking || !user}>
-            {booking ? 'Booking...' : user ? 'Book Now' : 'Sign in to Book'}
+          <BookButton onClick={handleBook} disabled={booking}>
+            {booking ? 'Booking...' : user ? 'Book Now' : 'Sign Up to Book'}
           </BookButton>
         </BookingBarContent>
       </FixedBookingBar>

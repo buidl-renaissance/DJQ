@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getBookingById } from '@/db/bookings';
-import { createB2BRequest } from '@/db/bookings';
+import { createB2BRequest, acceptB2BRequest } from '@/db/bookings';
 import { db } from '@/db/drizzle';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -20,7 +20,7 @@ export default async function handler(
   }
 
   try {
-    const { username, targetUsername } = req.body;
+    const { username, targetUsername, fromSharedInvite } = req.body;
     
     if (!username) {
       return res.status(400).json({ error: 'Username is required' });
@@ -72,6 +72,14 @@ export default async function handler(
       requesteeId: targetUserId,
       initiatedBy: isBooker ? 'booker' : 'requester',
     });
+
+    // If this is from a shared invite link and the requester is joining the booker's slot,
+    // auto-accept the request since the booker already shared the invite
+    if (fromSharedInvite && !isBooker) {
+      // The booker (targetUserId) already invited by sharing the link, so auto-accept
+      const acceptedRequest = await acceptB2BRequest(b2bRequest.id, targetUserId);
+      return res.status(201).json({ request: acceptedRequest });
+    }
 
     return res.status(201).json({ request: b2bRequest });
   } catch (error) {

@@ -212,9 +212,13 @@ const StyledLink = styled(Link)`
 
 export default function LoginPage() {
   const router = useRouter();
+  const { redirect } = router.query;
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Get the redirect URL or default to dashboard
+  const redirectUrl = typeof redirect === 'string' ? redirect : '/dashboard';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,8 +240,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Success - redirect to dashboard
-      router.push('/dashboard');
+      // Success - redirect to original page or dashboard
+      router.push(redirectUrl);
     } catch (err) {
       console.error('Login error:', err);
       setError('Something went wrong. Please try again.');
@@ -246,8 +250,9 @@ export default function LoginPage() {
   };
 
   const handleFarcasterLogin = () => {
-    // Redirect to home page which has Farcaster auth
-    router.push('/');
+    // Redirect to home page which has Farcaster auth, with redirect param
+    const homeUrl = redirect ? `/?redirect=${encodeURIComponent(redirectUrl)}` : '/';
+    router.push(homeUrl);
   };
 
   return (
@@ -291,7 +296,9 @@ export default function LoginPage() {
           </FarcasterButton>
           
           <LinksContainer>
-            <StyledLink href="/register">Don&apos;t have an account? Sign up</StyledLink>
+            <StyledLink href={redirect ? `/register?redirect=${encodeURIComponent(redirectUrl)}` : '/register'}>
+              Don&apos;t have an account? Sign up
+            </StyledLink>
           </LinksContainer>
         </FormCard>
       </Container>

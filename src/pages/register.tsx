@@ -185,12 +185,16 @@ const OrDivider = styled.span`
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { redirect } = router.query;
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Get the redirect URL or default to dashboard
+  const redirectUrl = typeof redirect === 'string' ? redirect : '/dashboard';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,8 +216,8 @@ export default function RegisterPage() {
         return;
       }
 
-      // Success - redirect to dashboard
-      router.push('/dashboard');
+      // Success - redirect to original page or dashboard
+      router.push(redirectUrl);
     } catch (err) {
       console.error('Registration error:', err);
       setError('Something went wrong. Please try again.');
@@ -291,9 +295,13 @@ export default function RegisterPage() {
           </Form>
           
           <LinksContainer>
-            <StyledLink href="/login">Already have an account? Log in</StyledLink>
+            <StyledLink href={redirect ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : '/login'}>
+              Already have an account? Log in
+            </StyledLink>
             <OrDivider>or</OrDivider>
-            <StyledLink href="/">Login with Farcaster</StyledLink>
+            <StyledLink href={redirect ? `/?redirect=${encodeURIComponent(redirectUrl)}` : '/'}>
+              Login with Farcaster
+            </StyledLink>
           </LinksContainer>
         </FormCard>
       </Container>

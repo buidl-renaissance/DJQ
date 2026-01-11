@@ -59,6 +59,19 @@ export default async function handler(
 
       const row = fullBooking[0];
 
+      // Get the booker's info
+      const bookerResult = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, booking.djId))
+        .limit(1);
+
+      const booker = bookerResult[0] ? {
+        id: bookerResult[0].id,
+        displayName: bookerResult[0].displayName || 'Unknown',
+        username: bookerResult[0].username || 'unknown',
+      } : null;
+
       // Check for B2B partner
       const b2bResult = await db
         .select({
@@ -139,6 +152,7 @@ export default async function handler(
           eventDate: row.event.eventDate,
           slotStartTime: row.slot.startTime,
           slotEndTime: row.slot.endTime,
+          booker,
           b2bPartner,
           pendingB2BRequest,
           allowB2B: row.event.allowB2B,
