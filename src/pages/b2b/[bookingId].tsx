@@ -446,7 +446,8 @@ export default function B2BInvitePage() {
     }
   };
 
-  if (loading || userLoading) {
+  // Only wait for booking to load, not user auth (which can be slow)
+  if (loading) {
     return (
       <ThemeProvider theme={theme}>
         <Head>
@@ -538,6 +539,10 @@ export default function B2BInvitePage() {
             <AlreadyTakenMessage>
               This is your booking. Share this link with someone you want to go B2B with!
             </AlreadyTakenMessage>
+          ) : userLoading ? (
+            <FormSection>
+              <SectionTitle>Checking account...</SectionTitle>
+            </FormSection>
           ) : user ? (
             <FormSection>
               <LoggedInMessage>
