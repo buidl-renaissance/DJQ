@@ -5,6 +5,8 @@ interface UserContextType {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  refreshUser: () => Promise<void>;
+  updateUser: (updatedUser: Partial<User>) => void;
 }
 
 interface SDKUser {
@@ -119,6 +121,26 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     storeUser(user);
   }, [user]);
+
+  // Function to refresh user data from the API
+  const refreshUser = async () => {
+    try {
+      const response = await fetch('/api/user/me');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
+          setUser(data.user);
+        }
+      }
+    } catch (err) {
+      console.error('Error refreshing user:', err);
+    }
+  };
+
+  // Function to update user data locally (after a successful API update)
+  const updateUser = (updatedUser: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...updatedUser } : null);
+  };
 
   // Function to authenticate user from SDK context
   const authenticateFromSDK = async (sdkUser: SDKUser) => {
@@ -663,7 +685,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <UserContext.Provider value={{ user, isLoading, error }}>
+    <UserContext.Provider value={{ user, isLoading, error, refreshUser, updateUser }}>
       {children}
     </UserContext.Provider>
   );

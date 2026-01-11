@@ -340,66 +340,6 @@ const SlotCountDuration = styled.span`
   margin-top: 0.25rem;
 `;
 
-// Window selection for multi-slot mode
-const WindowGrid = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.5rem;
-`;
-
-const WindowCard = styled.button<{ $isSelected: boolean; $isAvailable: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  border-radius: 8px;
-  cursor: ${({ $isAvailable }) => $isAvailable ? 'pointer' : 'not-allowed'};
-  transition: all 0.2s ease;
-  
-  ${({ $isSelected, $isAvailable, theme }) => {
-    if (!$isAvailable) {
-      return `
-        background-color: rgba(224, 224, 224, 0.05);
-        border: 1px solid rgba(224, 224, 224, 0.1);
-        color: rgba(224, 224, 224, 0.3);
-      `;
-    }
-    if ($isSelected) {
-      return `
-        background-color: rgba(57, 255, 20, 0.2);
-        border: 1px solid ${theme.colors.accent};
-        color: ${theme.colors.accent};
-        box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
-      `;
-    }
-    return `
-      background-color: rgba(57, 255, 20, 0.05);
-      border: 1px solid rgba(57, 255, 20, 0.2);
-      color: ${theme.colors.accent};
-      
-      &:hover {
-        background-color: rgba(57, 255, 20, 0.1);
-        border-color: rgba(57, 255, 20, 0.4);
-      }
-    `;
-  }}
-`;
-
-const WindowTime = styled.div`
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1rem;
-  font-weight: 700;
-`;
-
-const WindowStatus = styled.div`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.8;
-`;
-
 const LoadingContainer = styled.div`
   display: flex;
   justify-content: center;
@@ -485,7 +425,7 @@ export default function EventDetailPage() {
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sdkUsername, setSdkUsername] = useState<string | null>(null);
-  const [selectedSlotCount, setSelectedSlotCount] = useState<number>(1);
+  const [selectedSlotCount, setSelectedSlotCount] = useState<number>(1); // Single slot selection
 
   // Get username from SDK on mount
   useEffect(() => {
@@ -508,39 +448,6 @@ export default function EventDetailPage() {
     event.allowConsecutiveSlots === true || 
     (event.allowConsecutiveSlots as unknown) === 1
   ) && event.maxConsecutiveSlots > 1;
-
-  // Calculate available windows based on selected slot count
-  const getAvailableWindows = () => {
-    if (!isMultiSlotEnabled || selectedSlotCount === 1) return [];
-    
-    const windows: { startSlot: TimeSlot; endSlot: TimeSlot; slotIds: string[] }[] = [];
-    
-    // Sort by slot index
-    const sortedSlots = [...slots].sort((a, b) => a.slotIndex - b.slotIndex);
-    
-    // Find consecutive available windows
-    for (let i = 0; i <= sortedSlots.length - selectedSlotCount; i++) {
-      const windowSlots = sortedSlots.slice(i, i + selectedSlotCount);
-      
-      // Check if all slots in window are available and consecutive
-      const allAvailable = windowSlots.every(s => s.status === 'available');
-      const allConsecutive = windowSlots.every((s, idx) => 
-        idx === 0 || s.slotIndex === windowSlots[idx - 1].slotIndex + 1
-      );
-      
-      if (allAvailable && allConsecutive) {
-        windows.push({
-          startSlot: windowSlots[0],
-          endSlot: windowSlots[windowSlots.length - 1],
-          slotIds: windowSlots.map(s => s.id),
-        });
-      }
-    }
-    
-    return windows;
-  };
-
-  const availableWindows = getAvailableWindows();
 
   useEffect(() => {
     if (!id) return;
@@ -583,15 +490,10 @@ export default function EventDetailPage() {
   }, [id, user?.id]);
 
   const handleSlotClick = (slotId: string) => {
-    // In multi-slot mode with count > 1, use window selection instead
-    if (isMultiSlotEnabled && selectedSlotCount > 1) {
-      return; // Window selection is handled by handleWindowSelect
-    }
-    
     setSelectedSlotIds((prev) => {
       if (prev.includes(slotId)) {
-        // Deselect
-        return prev.filter((id) => id !== slotId);
+        // Deselect all
+        return [];
       } else {
         // Select single slot
         return [slotId];
@@ -599,15 +501,50 @@ export default function EventDetailPage() {
     });
   };
 
-  const handleWindowSelect = (slotIds: string[]) => {
-    setSelectedSlotIds((prev) => {
-      // If same window is selected, deselect
-      if (prev.length === slotIds.length && prev.every(id => slotIds.includes(id))) {
-        return [];
+  // Handle slot click with multi-slot count support
+  const handleSlotClickWithCount = (slotId: string) => {
+    // If already selected, deselect
+    if (selectedSlotIds.includes(slotId)) {
+      setSelectedSlotIds([]);
+      return;
+    }
+
+    // Find the clicked slot
+    const clickedSlot = slots.find(s => s.id === slotId);
+    if (!clickedSlot || clickedSlot.status !== 'available') {
+      return; // Can't select booked slots
+    }
+
+    // In single slot mode, just select one
+    if (selectedSlotCount === 1) {
+      setSelectedSlotIds([slotId]);
+      return;
+    }
+
+    // In multi-slot mode, find consecutive available slots starting from clicked
+    const clickedIndex = slots.findIndex(s => s.id === slotId);
+    const slotsToSelect: string[] = [slotId];
+
+    // Look for consecutive available slots after the clicked one
+    for (let i = clickedIndex + 1; i < slots.length && slotsToSelect.length < selectedSlotCount; i++) {
+      const nextSlot = slots[i];
+      // Check if this slot is consecutive (starts when previous ends)
+      const prevSlot = slots[i - 1];
+      const prevEndTime = new Date(prevSlot.endTime).getTime();
+      const nextStartTime = new Date(nextSlot.startTime).getTime();
+      
+      if (nextSlot.status === 'available' && nextStartTime === prevEndTime) {
+        slotsToSelect.push(nextSlot.id);
+      } else {
+        break; // Gap found or slot not available
       }
-      // Select the window
-      return slotIds;
-    });
+    }
+
+    // Only select if we have enough consecutive slots
+    if (slotsToSelect.length === selectedSlotCount) {
+      setSelectedSlotIds(slotsToSelect);
+    }
+    // Otherwise don't select anything (not enough consecutive slots available)
   };
 
   const handleSlotCountChange = (count: number) => {
@@ -759,82 +696,20 @@ export default function EventDetailPage() {
         <Section>
           <SectionTitle>Book Your Set</SectionTitle>
           
-          {/* Inline selection summary */}
-          {selectedSlotIds.length > 0 && (
-            <SelectionSummary>
-              <SelectionInfo>
-                <SelectionTitle>Your Selection</SelectionTitle>
-                <SelectionTime>{getSelectedSlotTimes()}</SelectionTime>
-                <SelectionDuration>
-                  {selectedSlotIds.length} slot{selectedSlotIds.length > 1 ? 's' : ''} · {selectedSlotIds.length * event.slotDurationMinutes} min total
-                </SelectionDuration>
-              </SelectionInfo>
-              <ClearSelectionButton onClick={() => setSelectedSlotIds([])}>
-                Clear
-              </ClearSelectionButton>
-            </SelectionSummary>
-          )}
-          
-          {/* Slot count selector for multi-slot mode */}
-          {isMultiSlotEnabled && (
-            <SlotCountSelector>
-              <SlotCountLabel>Set Length</SlotCountLabel>
-              <SlotCountButtons>
-                {Array.from({ length: event.maxConsecutiveSlots }, (_, i) => i + 1).map(count => (
-                  <SlotCountButton
-                    key={count}
-                    $isActive={selectedSlotCount === count}
-                    onClick={() => handleSlotCountChange(count)}
-                  >
-                    {count} slot{count > 1 ? 's' : ''}
-                    <SlotCountDuration>
-                      {count * event.slotDurationMinutes} min
-                    </SlotCountDuration>
-                  </SlotCountButton>
-                ))}
-              </SlotCountButtons>
-            </SlotCountSelector>
-          )}
+          {/* Selection shown inline in slot grid */}
 
-          {/* Show windows when multi-slot count > 1 is selected */}
-          {isMultiSlotEnabled && selectedSlotCount > 1 ? (
-            <WindowGrid>
-              {availableWindows.length > 0 ? (
-                availableWindows.map((window, idx) => {
-                  const isSelected = selectedSlotIds.length === window.slotIds.length && 
-                    selectedSlotIds.every(id => window.slotIds.includes(id));
-                  return (
-                    <WindowCard
-                      key={idx}
-                      $isSelected={isSelected}
-                      $isAvailable={true}
-                      onClick={() => handleWindowSelect(window.slotIds)}
-                    >
-                      <WindowTime>
-                        {formatTime(window.startSlot.startTime.toISOString())} - {formatTime(window.endSlot.endTime.toISOString())}
-                      </WindowTime>
-                      <WindowStatus>
-                        {isSelected ? 'Selected' : 'Available'}
-                      </WindowStatus>
-                    </WindowCard>
-                  );
-                })
-              ) : (
-                <ErrorMessage>No available {selectedSlotCount}-slot windows</ErrorMessage>
-              )}
-            </WindowGrid>
-          ) : (
-            <SlotGridContainer>
-              <SlotGrid
-                slots={slots}
-                selectedSlotIds={selectedSlotIds}
-                onSlotClick={handleSlotClick}
-                allowConsecutive={false}
-                maxConsecutive={1}
-                currentUserId={user?.id}
-              />
-            </SlotGridContainer>
-          )}
+          {/* Always show all slots - booked and available */}
+          <SlotGridContainer>
+            <SlotGrid
+              slots={slots}
+              selectedSlotIds={selectedSlotIds}
+              onSlotClick={handleSlotClickWithCount}
+              allowConsecutive={isMultiSlotEnabled ? true : false}
+              maxConsecutive={isMultiSlotEnabled ? event.maxConsecutiveSlots : 1}
+              currentUserId={user?.id}
+              selectedSlotCount={selectedSlotCount}
+            />
+          </SlotGridContainer>
 
           {error && <ErrorMessage style={{ marginTop: '1rem' }}>{error}</ErrorMessage>}
           

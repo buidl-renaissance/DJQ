@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { useState } from 'react';
 
 const ListContainer = styled.div`
   display: flex;
@@ -9,6 +10,8 @@ const ListContainer = styled.div`
 const SlotRow = styled.button<{ 
   $status: 'available' | 'booked' | 'yours' | 'selected' | 'in_progress' | 'completed';
   $isSelectable: boolean;
+  $isInHoverWindow?: boolean;
+  $canStartWindow?: boolean;
 }>`
   display: flex;
   align-items: center;
@@ -21,11 +24,20 @@ const SlotRow = styled.button<{
   cursor: ${({ $isSelectable }) => ($isSelectable ? 'pointer' : 'default')};
   transition: all 0.2s ease;
   
-  ${({ $status, theme }) => {
+  ${({ $status, $isInHoverWindow, $canStartWindow, theme }) => {
+    // Hover window highlight takes precedence for available slots
+    if ($isInHoverWindow && $status === 'available') {
+      return `
+        border-color: ${theme.colors.accent};
+        background: rgba(57, 255, 20, 0.1);
+      `;
+    }
+    
     switch ($status) {
       case 'available':
         return `
           border-color: rgba(57, 255, 20, 0.3);
+          ${!$canStartWindow ? 'opacity: 0.5;' : ''}
           
           &:hover {
             border-color: ${theme.colors.accent};
@@ -134,6 +146,7 @@ interface SlotGridProps {
   allowConsecutive: boolean;
   maxConsecutive: number;
   currentUserId?: string;
+  selectedSlotCount?: number;
 }
 
 export default function SlotGrid({
@@ -142,17 +155,70 @@ export default function SlotGrid({
   onSlotClick,
   allowConsecutive,
   maxConsecutive,
+  selectedSlotCount = 1,
 }: SlotGridProps) {
+  const [hoveredSlotId, setHoveredSlotId] = useState<string | null>(null);
+  
   // Sort slots by index
   const sortedSlots = [...slots].sort((a, b) => a.slotIndex - b.slotIndex);
+  
+  // Calculate which slots can start a multi-slot window
+  const getWindowSlots = (startSlotId: string): string[] => {
+    const startSlot = slots.find(s => s.id === startSlotId);
+    if (!startSlot || startSlot.status !== 'available') return [];
+    
+    const startIndex = slots.findIndex(s => s.id === startSlotId);
+    const windowSlots: string[] = [startSlotId];
+    
+    for (let i = startIndex + 1; i < slots.length && windowSlots.length < selectedSlotCount; i++) {
+      const nextSlot = slots[i];
+      const prevSlot = slots[i - 1];
+      const prevEndTime = new Date(prevSlot.endTime).getTime();
+      const nextStartTime = new Date(nextSlot.startTime).getTime();
+      
+      if (nextSlot.status === 'available' && nextStartTime === prevEndTime) {
+        windowSlots.push(nextSlot.id);
+      } else {
+        break;
+      }
+    }
+    
+    return windowSlots;
+  };
+  
+  // Check if a slot can start a valid window
+  const canStartWindow = (slotId: string): boolean => {
+    if (selectedSlotCount === 1) return true;
+    const windowSlots = getWindowSlots(slotId);
+    return windowSlots.length === selectedSlotCount;
+  };
+  
+  // Get slots that would be highlighted on hover
+  const getHoverWindowSlots = (): Set<string> => {
+    if (!hoveredSlotId || selectedSlotCount === 1) return new Set();
+    const windowSlots = getWindowSlots(hoveredSlotId);
+    if (windowSlots.length === selectedSlotCount) {
+      return new Set(windowSlots);
+    }
+    return new Set();
+  };
+  
+  const hoverWindowSlots = getHoverWindowSlots();
 
   // Determine if a slot can be selected based on consecutive rules
   const canSelectSlot = (slotId: string) => {
     const slot = slots.find(s => s.id === slotId);
     if (!slot || slot.status !== 'available') return false;
 
-    // If nothing selected, any available slot can be selected
-    if (selectedSlotIds.length === 0) return true;
+    // In single slot mode, any available slot can be selected (replaces current selection)
+    if (selectedSlotCount === 1) {
+      return true;
+    }
+
+    // If nothing selected, check if this slot can start a valid window
+    if (selectedSlotIds.length === 0) {
+      return canStartWindow(slotId);
+    }
 
     // Handle SQLite integer booleans (0/1) - check explicitly for true/1
     const isConsecutiveAllowed = allowConsecutive === true || (allowConsecutive as unknown) === 1;
@@ -212,13 +278,19 @@ export default function SlotGrid({
         const displayStatus = getDisplayStatus(slot, isSelected);
         const isSelectable = canSelectSlot(slot.id) || isSelected;
         const isBooked = slot.status === 'booked' || slot.status === 'yours';
+        const isInHoverWindow = hoverWindowSlots.has(slot.id);
+        const slotCanStartWindow = slot.status === 'available' && canStartWindow(slot.id);
         
         return (
           <SlotRow
             key={slot.id}
             $status={displayStatus}
             $isSelectable={isSelectable}
+            $isInHoverWindow={isInHoverWindow}
+            $canStartWindow={slotCanStartWindow}
             onClick={isSelectable ? () => onSlotClick(slot.id) : undefined}
+            onMouseEnter={() => slot.status === 'available' && setHoveredSlotId(slot.id)}
+            onMouseLeave={() => setHoveredSlotId(null)}
             type="button"
           >
             <SlotTime>{formatTime(slot.startTime)}</SlotTime>

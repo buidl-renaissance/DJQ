@@ -304,7 +304,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function AccountPage() {
-  const { user, isLoading } = useUser();
+  const { user, isLoading, updateUser } = useUser();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -370,6 +370,8 @@ export default function AccountPage() {
       if (data.user?.pfpUrl) {
         setCurrentPfpUrl(data.user.pfpUrl);
         setPreviewUrl(data.user.pfpUrl);
+        // Update the user context so other parts of the app see the change
+        updateUser({ pfpUrl: data.user.pfpUrl });
       }
       
       setMessage({ type: 'success', text: 'Profile picture updated!' });
@@ -422,6 +424,8 @@ export default function AccountPage() {
 
       setCurrentPfpUrl(null);
       setPreviewUrl(null);
+      // Update the user context so other parts of the app see the change
+      updateUser({ pfpUrl: null });
       setMessage({ type: 'success', text: 'Profile picture removed!' });
     } catch (err) {
       console.error('Error removing picture:', err);
@@ -456,8 +460,11 @@ export default function AccountPage() {
 
       setMessage({ type: 'success', text: 'Name updated successfully!' });
       
-      if (data.user?.displayName) {
-        setDisplayName(data.user.displayName);
+      if (data.user) {
+        // Update local state
+        setDisplayName(data.user.displayName || '');
+        // Update the user context so other parts of the app see the change
+        updateUser({ displayName: data.user.displayName });
       }
     } catch (err) {
       console.error('Error updating name:', err);
