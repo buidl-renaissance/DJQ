@@ -1,9 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { db } from './drizzle';
 import {
   events,
   timeSlots,
+  slotBookings,
+  b2bRequests,
   EventStatus,
   SlotDuration,
   BookingType,
@@ -255,14 +257,40 @@ export async function updateEvent(
 }
 
 /**
- * Delete an event and its associated time slots
+ * Delete an event and its associated time slots, bookings, and B2B requests
  */
 export async function deleteEvent(eventId: string): Promise<boolean> {
   const existing = await getEventById(eventId);
   if (!existing) return false;
   
-  // Delete associated time slots first
-  await db.delete(timeSlots).where(eq(timeSlots.eventId, eventId));
+  // Get all slot IDs for this event
+  const eventSlots = await db
+    .select({ id: timeSlots.id })
+    .from(timeSlots)
+    .where(eq(timeSlots.eventId, eventId));
+  
+  const slotIds = eventSlots.map(s => s.id);
+  
+  if (slotIds.length > 0) {
+    // Get all booking IDs for these slots
+    const bookings = await db
+      .select({ id: slotBookings.id })
+      .from(slotBookings)
+      .where(inArray(slotBookings.slotId, slotIds));
+    
+    const bookingIds = bookings.map(b => b.id);
+    
+    if (bookingIds.length > 0) {
+      // Delete B2B requests for these bookings
+      await db.delete(b2bRequests).where(inArray(b2bRequests.bookingId, bookingIds));
+      
+      // Delete the bookings
+      await db.delete(slotBookings).where(inArray(slotBookings.id, bookingIds));
+    }
+    
+    // Delete time slots
+    await db.delete(timeSlots).where(eq(timeSlots.eventId, eventId));
+  }
   
   // Delete the event
   await db.delete(events).where(eq(events.id, eventId));

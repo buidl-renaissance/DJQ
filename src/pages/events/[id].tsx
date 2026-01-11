@@ -130,19 +130,62 @@ const SlotGridContainer = styled.div`
   padding: 1rem;
 `;
 
-const SelectionSummary = styled.div`
-  background-color: rgba(57, 255, 20, 0.1);
-  border: 1px solid rgba(57, 255, 20, 0.3);
-  border-radius: 8px;
+const FixedBookingBar = styled.div<{ $isVisible: boolean }>`
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(10, 10, 10, 0.98) 0%, rgba(10, 10, 10, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(57, 255, 20, 0.3);
   padding: 1rem;
-  margin-top: 1rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: 100;
+  transform: translateY(${({ $isVisible }) => ($isVisible ? '0' : '100%')});
+  opacity: ${({ $isVisible }) => ($isVisible ? 1 : 0)};
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+`;
+
+const BookingBarContent = styled.div`
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const BookingBarTop = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 `;
 
 const SummaryText = styled.p`
   font-family: ${({ theme }) => theme.fonts.body};
   font-size: 0.85rem;
   color: ${({ theme }) => theme.colors.contrast};
-  margin: 0 0 0.75rem;
+  margin: 0;
+  
+  span {
+    color: ${({ theme }) => theme.colors.accent};
+    font-weight: 600;
+  }
+`;
+
+const ClearButton = styled.button`
+  background: none;
+  border: none;
+  color: rgba(224, 224, 224, 0.6);
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  transition: color 0.2s ease;
+  
+  &:hover {
+    color: ${({ theme }) => theme.colors.secondary};
+  }
 `;
 
 const BookButton = styled.button`
@@ -178,15 +221,9 @@ const BookButton = styled.button`
   }
 `;
 
-const ClearButton = styled.button`
-  background: none;
-  border: none;
-  color: ${({ theme }) => theme.colors.secondary};
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.75rem;
-  cursor: pointer;
-  text-decoration: underline;
-  margin-top: 0.5rem;
+const PageSpacer = styled.div<{ $isVisible: boolean }>`
+  height: ${({ $isVisible }) => ($isVisible ? '140px' : '0')};
+  transition: height 0.3s ease;
 `;
 
 // Slot count selector for multi-slot booking
@@ -397,6 +434,17 @@ export default function EventDetailPage() {
   useEffect(() => {
     getSDKUsername().then(setSdkUsername);
   }, []);
+
+  // Default to 1 hour worth of slots when booking (if multi-slot is enabled)
+  useEffect(() => {
+    if (event && event.allowConsecutiveSlots && event.maxConsecutiveSlots > 1) {
+      const slotsFor1Hour = Math.floor(60 / event.slotDurationMinutes);
+      const defaultCount = Math.min(slotsFor1Hour, event.maxConsecutiveSlots);
+      if (defaultCount > 1) {
+        setSelectedSlotCount(defaultCount);
+      }
+    }
+  }, [event]);
 
   // Check if multi-slot mode is enabled
   const isMultiSlotEnabled = event && (
@@ -701,23 +749,27 @@ export default function EventDetailPage() {
             </SlotGridContainer>
           )}
 
-          {selectedSlotIds.length > 0 && (
-            <SelectionSummary>
-              <SummaryText>
-                {selectedSlotIds.length} slot{selectedSlotIds.length > 1 ? 's' : ''} selected: {getSelectedSlotTimes()}
-              </SummaryText>
-              <BookButton onClick={handleBook} disabled={booking || !user}>
-                {booking ? 'Booking...' : user ? 'Book Now' : 'Sign in to Book'}
-              </BookButton>
-              <ClearButton onClick={() => setSelectedSlotIds([])}>
-                Clear Selection
-              </ClearButton>
-            </SelectionSummary>
-          )}
-
           {error && <ErrorMessage style={{ marginTop: '1rem' }}>{error}</ErrorMessage>}
+          
+          <PageSpacer $isVisible={selectedSlotIds.length > 0} />
         </Section>
       </PageContainer>
+      
+      <FixedBookingBar $isVisible={selectedSlotIds.length > 0}>
+        <BookingBarContent>
+          <BookingBarTop>
+            <SummaryText>
+              <span>{selectedSlotIds.length} slot{selectedSlotIds.length > 1 ? 's' : ''}</span> · {getSelectedSlotTimes()}
+            </SummaryText>
+            <ClearButton onClick={() => setSelectedSlotIds([])}>
+              Clear
+            </ClearButton>
+          </BookingBarTop>
+          <BookButton onClick={handleBook} disabled={booking || !user}>
+            {booking ? 'Booking...' : user ? 'Book Now' : 'Sign in to Book'}
+          </BookButton>
+        </BookingBarContent>
+      </FixedBookingBar>
     </AppLayout>
   );
 }

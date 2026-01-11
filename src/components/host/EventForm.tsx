@@ -226,7 +226,7 @@ export default function EventForm({
     eventDate: initialData?.eventDate || '',
     startTime: initialData?.startTime || '',
     endTime: initialData?.endTime || '',
-    slotDurationMinutes: initialData?.slotDurationMinutes || 20,
+    slotDurationMinutes: initialData?.slotDurationMinutes || 60,
     allowConsecutiveSlots: initialData?.allowConsecutiveSlots || false,
     maxConsecutiveSlots: initialData?.maxConsecutiveSlots || 2,
     allowB2B: initialData?.allowB2B ?? true,

@@ -384,8 +384,11 @@ export default function ManageEventPage() {
     setError(null);
 
     try {
+      const username = sdkUsername || user?.username;
       const response = await fetch(`/api/host/events/${id}/publish`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
       });
 
       if (!response.ok) {
@@ -406,12 +409,17 @@ export default function ManageEventPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`/api/host/events/${id}`, {
+      const username = sdkUsername || user?.username;
+      const url = username 
+        ? `/api/host/events/${id}?username=${encodeURIComponent(username)}`
+        : `/api/host/events/${id}`;
+      const response = await fetch(url, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete event');
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete event');
       }
 
       router.push('/host');
