@@ -2,7 +2,80 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '@/db/drizzle';
 import { slotBookings, timeSlots, events, users, b2bRequests } from '@/db/schema';
 import { cancelBooking, getBookingById } from '@/db/bookings';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
+
+/**
+ * Find all bookings that are part of the same consecutive set
+ * (same DJ, same event, consecutive slots, same status)
+ */
+async function findRelatedBookings(bookingId: string) {
+  // Get the initial booking with slot info
+  const initialBooking = await db
+    .select({
+      booking: slotBookings,
+      slot: timeSlots,
+    })
+    .from(slotBookings)
+    .innerJoin(timeSlots, eq(slotBookings.slotId, timeSlots.id))
+    .where(eq(slotBookings.id, bookingId))
+    .limit(1);
+
+  if (!initialBooking[0]) return [];
+
+  const { booking, slot } = initialBooking[0];
+  const djId = booking.djId;
+  const eventId = slot.eventId;
+  const status = booking.status;
+
+  // Get all bookings by the same DJ for the same event with the same status
+  const allBookings = await db
+    .select({
+      booking: slotBookings,
+      slot: timeSlots,
+    })
+    .from(slotBookings)
+    .innerJoin(timeSlots, eq(slotBookings.slotId, timeSlots.id))
+    .where(
+      and(
+        eq(slotBookings.djId, djId),
+        eq(timeSlots.eventId, eventId),
+        eq(slotBookings.status, status)
+      )
+    );
+
+  // Sort by slot index
+  const sorted = allBookings.sort((a, b) => a.slot.slotIndex - b.slot.slotIndex);
+
+  // Find the consecutive group that contains our initial slot
+  const groups: typeof sorted[] = [];
+  let currentGroup: typeof sorted = [];
+
+  for (const row of sorted) {
+    if (currentGroup.length === 0) {
+      currentGroup.push(row);
+    } else {
+      const lastSlot = currentGroup[currentGroup.length - 1].slot;
+      if (row.slot.slotIndex === lastSlot.slotIndex + 1) {
+        currentGroup.push(row);
+      } else {
+        groups.push(currentGroup);
+        currentGroup = [row];
+      }
+    }
+  }
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup);
+  }
+
+  // Find the group that contains our booking
+  for (const group of groups) {
+    if (group.some(r => r.booking.id === bookingId)) {
+      return group;
+    }
+  }
+
+  return [initialBooking[0]];
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -40,24 +113,32 @@ export default async function handler(
         return res.status(403).json({ error: 'Not authorized' });
       }
 
-      // Get full booking details
-      const fullBooking = await db
-        .select({
-          booking: slotBookings,
-          slot: timeSlots,
-          event: events,
-        })
-        .from(slotBookings)
-        .innerJoin(timeSlots, eq(slotBookings.slotId, timeSlots.id))
-        .innerJoin(events, eq(timeSlots.eventId, events.id))
-        .where(eq(slotBookings.id, id))
-        .limit(1);
-
-      if (!fullBooking[0]) {
+      // Find all related bookings (consecutive slots)
+      const relatedBookings = await findRelatedBookings(id);
+      
+      if (relatedBookings.length === 0) {
         return res.status(404).json({ error: 'Booking not found' });
       }
 
-      const row = fullBooking[0];
+      // Get event info from the first booking
+      const eventResult = await db
+        .select()
+        .from(events)
+        .where(eq(events.id, relatedBookings[0].slot.eventId))
+        .limit(1);
+
+      if (!eventResult[0]) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      const event = eventResult[0];
+
+      // Calculate combined time range
+      const sortedByTime = [...relatedBookings].sort(
+        (a, b) => a.slot.slotIndex - b.slot.slotIndex
+      );
+      const firstSlot = sortedByTime[0].slot;
+      const lastSlot = sortedByTime[sortedByTime.length - 1].slot;
 
       // Get the booker's info
       const bookerResult = await db
@@ -72,7 +153,10 @@ export default async function handler(
         username: bookerResult[0].username || 'unknown',
       } : null;
 
-      // Check for B2B partner
+      // Check for B2B partner on any of the bookings
+      const bookingIds = relatedBookings.map(r => r.booking.id);
+      let b2bPartner: { id: string; displayName: string; username: string } | null = null;
+      
       const b2bResult = await db
         .select({
           request: b2bRequests,
@@ -80,15 +164,13 @@ export default async function handler(
         .from(b2bRequests)
         .where(
           and(
-            eq(b2bRequests.bookingId, id),
+            inArray(b2bRequests.bookingId, bookingIds),
             eq(b2bRequests.status, 'accepted')
           )
         )
         .limit(1);
 
-      let b2bPartner: { id: string; displayName: string; username: string } | null = null;
       if (b2bResult[0]) {
-        // Use booking's djId to determine who the partner is
         const bookingDjId = booking.djId;
         const partnerUserId = b2bResult[0].request.requesterId === bookingDjId
           ? b2bResult[0].request.requesteeId
@@ -109,7 +191,9 @@ export default async function handler(
         }
       }
 
-      // Check for pending B2B request
+      // Check for pending B2B request on any booking
+      let pendingB2BRequest: { id: string; targetUser: { displayName: string; username: string } } | null = null;
+      
       const pendingB2B = await db
         .select({
           request: b2bRequests,
@@ -117,13 +201,12 @@ export default async function handler(
         .from(b2bRequests)
         .where(
           and(
-            eq(b2bRequests.bookingId, id),
+            inArray(b2bRequests.bookingId, bookingIds),
             eq(b2bRequests.status, 'pending')
           )
         )
         .limit(1);
 
-      let pendingB2BRequest: { id: string; targetUser: { displayName: string; username: string } } | null = null;
       if (pendingB2B[0]) {
         const targetUserId = pendingB2B[0].request.requesteeId;
         const targetResult = await db
@@ -145,17 +228,19 @@ export default async function handler(
 
       return res.status(200).json({
         booking: {
-          id: row.booking.id,
-          status: row.booking.status,
-          eventId: row.event.id,
-          eventTitle: row.event.title,
-          eventDate: row.event.eventDate,
-          slotStartTime: row.slot.startTime,
-          slotEndTime: row.slot.endTime,
+          id: relatedBookings[0].booking.id,
+          bookingIds: bookingIds,
+          slotCount: relatedBookings.length,
+          status: relatedBookings[0].booking.status,
+          eventId: event.id,
+          eventTitle: event.title,
+          eventDate: event.eventDate,
+          slotStartTime: firstSlot.startTime,
+          slotEndTime: lastSlot.endTime,
           booker,
           b2bPartner,
           pendingB2BRequest,
-          allowB2B: row.event.allowB2B,
+          allowB2B: event.allowB2B,
         },
       });
     } catch (error) {
@@ -181,9 +266,17 @@ export default async function handler(
         return res.status(403).json({ error: 'Not authorized' });
       }
 
-      await cancelBooking(id);
+      // Find all related bookings and cancel them all
+      const relatedBookings = await findRelatedBookings(id);
+      
+      for (const related of relatedBookings) {
+        await cancelBooking(related.booking.id);
+      }
 
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ 
+        success: true,
+        cancelledCount: relatedBookings.length,
+      });
     } catch (error) {
       console.error('Failed to cancel booking:', error);
       return res.status(500).json({ 

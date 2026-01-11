@@ -139,6 +139,21 @@ const DateInfo = styled.div`
   color: rgba(224, 224, 224, 0.6);
 `;
 
+const SlotCountBadge = styled.span`
+  display: inline-block;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  margin-left: 0.75rem;
+  background-color: rgba(57, 255, 20, 0.15);
+  color: ${({ theme }) => theme.colors.accent};
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  vertical-align: middle;
+`;
+
 const Section = styled.section`
   margin-bottom: 1.5rem;
 `;
@@ -356,6 +371,8 @@ const ArrowLeftIcon = () => (
 
 interface BookingData {
   id: string;
+  bookingIds?: string[];
+  slotCount?: number;
   status: string;
   eventId: string;
   eventTitle: string;
@@ -508,7 +525,12 @@ export default function BookingDetailPage() {
   };
 
   const handleCancelBooking = async () => {
-    if (!confirm('Are you sure you want to cancel this booking?')) return;
+    const slotCount = booking?.slotCount || 1;
+    const message = slotCount > 1 
+      ? `Are you sure you want to cancel this set? This will cancel all ${slotCount} slots.`
+      : 'Are you sure you want to cancel this booking?';
+    
+    if (!confirm(message)) return;
 
     setCancelLoading(true);
     try {
@@ -603,6 +625,9 @@ export default function BookingDetailPage() {
           <EventTitle>{booking.eventTitle}</EventTitle>
           <SlotTime>
             {formatTime(booking.slotStartTime)} - {formatTime(booking.slotEndTime)}
+            {booking.slotCount && booking.slotCount > 1 && (
+              <SlotCountBadge>{booking.slotCount} slots</SlotCountBadge>
+            )}
           </SlotTime>
           <DateInfo>{formatDate(booking.eventDate)}</DateInfo>
         </BookingHeader>
@@ -646,7 +671,11 @@ export default function BookingDetailPage() {
           <Section>
             <SectionTitle>Actions</SectionTitle>
             <CancelButton onClick={handleCancelBooking} disabled={cancelLoading}>
-              {cancelLoading ? 'Cancelling...' : 'Cancel Booking'}
+              {cancelLoading 
+                ? 'Cancelling...' 
+                : booking.slotCount && booking.slotCount > 1 
+                  ? `Cancel Set (${booking.slotCount} slots)`
+                  : 'Cancel Booking'}
             </CancelButton>
           </Section>
         )}
