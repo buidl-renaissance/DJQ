@@ -128,6 +128,19 @@ const PendingBadge = styled.span`
   border: 1px solid rgba(255, 193, 7, 0.3);
 `;
 
+const SlotCountBadge = styled.span`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background-color: rgba(57, 255, 20, 0.15);
+  color: ${({ theme }) => theme.colors.accent};
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  margin-left: 0.5rem;
+`;
+
 const MusicIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M9 18V5l12-2v13" />
@@ -146,6 +159,8 @@ export interface BookingCardProps {
   status: 'confirmed' | 'cancelled';
   b2bPartner?: string | null;
   hasPendingB2B?: boolean;
+  slotCount?: number;
+  bookingIds?: string[];
 }
 
 export default function BookingCard({
@@ -157,6 +172,7 @@ export default function BookingCard({
   status,
   b2bPartner,
   hasPendingB2B,
+  slotCount = 1,
 }: BookingCardProps) {
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -189,6 +205,9 @@ export default function BookingCard({
           <TimeLabel>
             {formatTime(slotStartTime)} - {formatTime(slotEndTime)}
           </TimeLabel>
+          {slotCount > 1 && (
+            <SlotCountBadge>{slotCount} slots</SlotCountBadge>
+          )}
         </TimeInfo>
 
         {(b2bPartner || hasPendingB2B) && (
