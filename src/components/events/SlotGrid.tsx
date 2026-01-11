@@ -1,27 +1,120 @@
 import styled from 'styled-components';
-import SlotChip from './SlotChip';
 
-const GridContainer = styled.div`
+const ListContainer = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.5rem;
-  padding: 0.5rem;
 `;
 
-const GridSection = styled.div`
+const SlotRow = styled.button<{ 
+  $status: 'available' | 'booked' | 'yours' | 'selected' | 'in_progress' | 'completed';
+  $isSelectable: boolean;
+}>`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
-  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid;
+  background: transparent;
+  cursor: ${({ $isSelectable }) => ($isSelectable ? 'pointer' : 'default')};
+  transition: all 0.2s ease;
+  
+  ${({ $status, theme }) => {
+    switch ($status) {
+      case 'available':
+        return `
+          border-color: rgba(57, 255, 20, 0.3);
+          
+          &:hover {
+            border-color: ${theme.colors.accent};
+            background: rgba(57, 255, 20, 0.05);
+          }
+        `;
+      case 'selected':
+        return `
+          border-color: ${theme.colors.accent};
+          background: rgba(57, 255, 20, 0.15);
+          box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
+        `;
+      case 'booked':
+        return `
+          border-color: rgba(255, 45, 149, 0.4);
+          cursor: default;
+        `;
+      case 'yours':
+        return `
+          border-color: rgba(255, 45, 149, 0.6);
+          background: rgba(255, 45, 149, 0.1);
+        `;
+      case 'in_progress':
+        return `
+          border-color: ${theme.colors.secondary};
+          background: rgba(255, 45, 149, 0.15);
+        `;
+      case 'completed':
+        return `
+          border-color: rgba(224, 224, 224, 0.1);
+          opacity: 0.5;
+          cursor: default;
+        `;
+      default:
+        return `
+          border-color: rgba(224, 224, 224, 0.1);
+        `;
+    }
+  }}
 `;
 
-const SectionLabel = styled.div`
+const SlotTime = styled.span`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 1rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.contrast};
+`;
+
+const SlotInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+`;
+
+const DjName = styled.span<{ $isYours?: boolean }>`
   font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: rgba(224, 224, 224, 0.4);
-  padding: 0.5rem 0;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(224, 224, 224, 0.1);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: ${({ theme, $isYours }) => $isYours ? theme.colors.secondary : 'rgba(255, 45, 149, 0.9)'};
+`;
+
+const B2BBadge = styled.span`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.accent};
+  background: rgba(57, 255, 20, 0.15);
+  border: 1px solid rgba(57, 255, 20, 0.4);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+`;
+
+const StatusLabel = styled.span<{ $status: string }>`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  
+  ${({ $status, theme }) => {
+    switch ($status) {
+      case 'available':
+      case 'selected':
+        return `color: ${theme.colors.accent};`;
+      case 'yours':
+        return `color: ${theme.colors.secondary};`;
+      default:
+        return `color: rgba(224, 224, 224, 0.5);`;
+    }
+  }}
 `;
 
 export interface TimeSlot {
@@ -31,6 +124,7 @@ export interface TimeSlot {
   status: 'available' | 'booked' | 'yours' | 'in_progress' | 'completed';
   slotIndex: number;
   djName?: string;
+  b2bPartner?: string;
 }
 
 interface SlotGridProps {
@@ -49,19 +143,8 @@ export default function SlotGrid({
   allowConsecutive,
   maxConsecutive,
 }: SlotGridProps) {
-  // Group slots by hour for better organization
-  const groupedSlots = slots.reduce((acc, slot) => {
-    const hour = new Date(slot.startTime).getHours();
-    const period = hour < 12 ? 'AM' : 'PM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const key = `${displayHour} ${period}`;
-    
-    if (!acc[key]) {
-      acc[key] = [];
-    }
-    acc[key].push(slot);
-    return acc;
-  }, {} as Record<string, TimeSlot[]>);
+  // Sort slots by index
+  const sortedSlots = [...slots].sort((a, b) => a.slotIndex - b.slotIndex);
 
   // Determine if a slot can be selected based on consecutive rules
   const canSelectSlot = (slotId: string) => {
@@ -93,28 +176,71 @@ export default function SlotGrid({
     return slot.slotIndex === minSelected - 1 || slot.slotIndex === maxSelected + 1;
   };
 
+  const formatTime = (date: Date) => {
+    return new Date(date).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const getDisplayStatus = (slot: TimeSlot, isSelected: boolean) => {
+    if (isSelected) return 'selected';
+    return slot.status;
+  };
+
+  const getStatusLabel = (slot: TimeSlot, isSelected: boolean) => {
+    if (isSelected) return 'Selected';
+    switch (slot.status) {
+      case 'available':
+        return 'Open';
+      case 'yours':
+        return 'Your Set';
+      case 'in_progress':
+        return 'Live';
+      case 'completed':
+        return 'Done';
+      default:
+        return '';
+    }
+  };
+
   return (
-    <GridContainer>
-      {Object.entries(groupedSlots).map(([hourLabel, hourSlots]) => (
-        <GridSection key={hourLabel}>
-          <SectionLabel>{hourLabel}</SectionLabel>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {hourSlots.map((slot) => (
-              <SlotChip
-                key={slot.id}
-                id={slot.id}
-                startTime={slot.startTime}
-                endTime={slot.endTime}
-                status={slot.status}
-                isSelected={selectedSlotIds.includes(slot.id)}
-                onClick={() => onSlotClick(slot.id)}
-                disabled={!canSelectSlot(slot.id) && !selectedSlotIds.includes(slot.id)}
-                djName={slot.djName}
-              />
-            ))}
-          </div>
-        </GridSection>
-      ))}
-    </GridContainer>
+    <ListContainer>
+      {sortedSlots.map((slot) => {
+        const isSelected = selectedSlotIds.includes(slot.id);
+        const displayStatus = getDisplayStatus(slot, isSelected);
+        const isSelectable = canSelectSlot(slot.id) || isSelected;
+        const isBooked = slot.status === 'booked' || slot.status === 'yours';
+        
+        return (
+          <SlotRow
+            key={slot.id}
+            $status={displayStatus}
+            $isSelectable={isSelectable}
+            onClick={isSelectable ? () => onSlotClick(slot.id) : undefined}
+            type="button"
+          >
+            <SlotTime>{formatTime(slot.startTime)}</SlotTime>
+            
+            <SlotInfo>
+              {isBooked && slot.djName && (
+                <>
+                  <DjName $isYours={slot.status === 'yours'}>{slot.djName}</DjName>
+                  {slot.b2bPartner && (
+                    <B2BBadge>+ {slot.b2bPartner}</B2BBadge>
+                  )}
+                </>
+              )}
+              {!isBooked && (
+                <StatusLabel $status={displayStatus}>
+                  {getStatusLabel(slot, isSelected)}
+                </StatusLabel>
+              )}
+            </SlotInfo>
+          </SlotRow>
+        );
+      })}
+    </ListContainer>
   );
 }

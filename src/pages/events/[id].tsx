@@ -561,13 +561,14 @@ export default function EventDetailPage() {
           endTime: string;
           slotIndex: number;
           status: string;
-          booking?: { djId: string; djName?: string };
+          booking?: { djId: string; djName?: string; b2bPartner?: string };
         }) => ({
           ...slot,
           startTime: new Date(slot.startTime),
           endTime: new Date(slot.endTime),
           status: slot.booking?.djId === user?.id ? 'yours' : slot.status,
           djName: slot.booking?.djName,
+          b2bPartner: slot.booking?.b2bPartner,
         }));
         
         setSlots(transformedSlots);
