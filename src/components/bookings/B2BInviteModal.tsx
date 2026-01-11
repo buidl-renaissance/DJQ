@@ -8,7 +8,7 @@ const Overlay = styled.div`
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  z-index: 200;
+  z-index: 500;
   animation: fadeIn 0.2s ease;
   
   @keyframes fadeIn {
@@ -23,11 +23,12 @@ const Modal = styled.div`
   border-radius: 16px 16px 0 0;
   width: 100%;
   max-width: 500px;
-  max-height: 70vh;
+  max-height: 80vh;
   overflow: hidden;
   animation: slideUp 0.3s ease;
-  /* Account for the bottom TabBar (64px) plus safe area */
+  /* Position above the tab bar (64px) plus safe area */
   margin-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 0.5rem;
   
   @keyframes slideUp {
     from { transform: translateY(100%); }

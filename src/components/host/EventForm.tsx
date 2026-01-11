@@ -25,7 +25,7 @@ const Label = styled.label`
 const Input = styled.input`
   padding: 0.875rem 1rem;
   font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.95rem;
+  font-size: 16px;
   background-color: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(57, 255, 20, 0.2);
   border-radius: 8px;
@@ -45,7 +45,7 @@ const Input = styled.input`
 const TextArea = styled.textarea`
   padding: 0.875rem 1rem;
   font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.95rem;
+  font-size: 16px;
   background-color: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(57, 255, 20, 0.2);
   border-radius: 8px;
