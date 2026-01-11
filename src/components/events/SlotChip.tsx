@@ -18,8 +18,8 @@ const Chip = styled.button<ChipProps>`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  min-width: 70px;
+  gap: 0.2rem;
+  min-width: 80px;
   position: relative;
   
   ${({ $status, theme, $isSelectable }) => {
@@ -120,6 +120,15 @@ const Status = styled.span`
   opacity: 0.8;
 `;
 
+const DjName = styled.span`
+  font-size: 0.65rem;
+  font-weight: 600;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
 export interface SlotChipProps {
   id: string;
   startTime: Date;
@@ -156,7 +165,7 @@ export default function SlotChip({
       case 'available':
         return 'Open';
       case 'booked':
-        return djName || 'Booked';
+        return 'Booked';
       case 'yours':
         return 'Your Set';
       case 'in_progress':
@@ -168,6 +177,8 @@ export default function SlotChip({
     }
   };
 
+  const showDjName = (status === 'booked' || status === 'yours') && djName;
+
   return (
     <Chip
       $status={displayStatus}
@@ -177,6 +188,7 @@ export default function SlotChip({
       type="button"
     >
       <Time>{formatTime(startTime)}</Time>
+      {showDjName && <DjName title={djName}>{djName}</DjName>}
       <Status>{getStatusLabel()}</Status>
     </Chip>
   );

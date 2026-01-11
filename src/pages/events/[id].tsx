@@ -225,6 +225,64 @@ const PageSpacer = styled.div<{ $isVisible: boolean }>`
   transition: height 0.3s ease;
 `;
 
+// Selected slots inline summary
+const SelectionSummary = styled.div`
+  background: linear-gradient(135deg, rgba(57, 255, 20, 0.15) 0%, rgba(57, 255, 20, 0.05) 100%);
+  border: 1px solid rgba(57, 255, 20, 0.4);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+`;
+
+const SelectionInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+const SelectionTitle = styled.div`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: ${({ theme }) => theme.colors.accent};
+`;
+
+const SelectionTime = styled.div`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.contrast};
+`;
+
+const SelectionDuration = styled.div`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.75rem;
+  color: rgba(224, 224, 224, 0.7);
+`;
+
+const ClearSelectionButton = styled.button`
+  background: transparent;
+  border: 1px solid rgba(255, 45, 149, 0.5);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.7rem;
+  color: ${({ theme }) => theme.colors.secondary};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  
+  &:hover {
+    background: rgba(255, 45, 149, 0.1);
+    border-color: ${({ theme }) => theme.colors.secondary};
+  }
+`;
+
 // Slot count selector for multi-slot booking
 const SlotCountSelector = styled.div`
   margin-bottom: 1.5rem;
@@ -699,6 +757,22 @@ export default function EventDetailPage() {
 
         <Section>
           <SectionTitle>Book Your Set</SectionTitle>
+          
+          {/* Inline selection summary */}
+          {selectedSlotIds.length > 0 && (
+            <SelectionSummary>
+              <SelectionInfo>
+                <SelectionTitle>Your Selection</SelectionTitle>
+                <SelectionTime>{getSelectedSlotTimes()}</SelectionTime>
+                <SelectionDuration>
+                  {selectedSlotIds.length} slot{selectedSlotIds.length > 1 ? 's' : ''} · {selectedSlotIds.length * event.slotDurationMinutes} min total
+                </SelectionDuration>
+              </SelectionInfo>
+              <ClearSelectionButton onClick={() => setSelectedSlotIds([])}>
+                Clear
+              </ClearSelectionButton>
+            </SelectionSummary>
+          )}
           
           {/* Slot count selector for multi-slot mode */}
           {isMultiSlotEnabled && (
