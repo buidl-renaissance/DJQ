@@ -225,121 +225,6 @@ const PageSpacer = styled.div<{ $isVisible: boolean }>`
   transition: height 0.3s ease;
 `;
 
-// Selected slots inline summary
-const SelectionSummary = styled.div`
-  background: linear-gradient(135deg, rgba(57, 255, 20, 0.15) 0%, rgba(57, 255, 20, 0.05) 100%);
-  border: 1px solid rgba(57, 255, 20, 0.4);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-`;
-
-const SelectionInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-`;
-
-const SelectionTitle = styled.div`
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: ${({ theme }) => theme.colors.accent};
-`;
-
-const SelectionTime = styled.div`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: ${({ theme }) => theme.colors.contrast};
-`;
-
-const SelectionDuration = styled.div`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.75rem;
-  color: rgba(224, 224, 224, 0.7);
-`;
-
-const ClearSelectionButton = styled.button`
-  background: transparent;
-  border: 1px solid rgba(255, 45, 149, 0.5);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.7rem;
-  color: ${({ theme }) => theme.colors.secondary};
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  
-  &:hover {
-    background: rgba(255, 45, 149, 0.1);
-    border-color: ${({ theme }) => theme.colors.secondary};
-  }
-`;
-
-// Slot count selector for multi-slot booking
-const SlotCountSelector = styled.div`
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background-color: rgba(57, 255, 20, 0.05);
-  border: 1px solid rgba(57, 255, 20, 0.2);
-  border-radius: 8px;
-`;
-
-const SlotCountLabel = styled.div`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: rgba(224, 224, 224, 0.7);
-  margin-bottom: 0.75rem;
-`;
-
-const SlotCountButtons = styled.div`
-  display: flex;
-  gap: 0.5rem;
-`;
-
-const SlotCountButton = styled.button<{ $isActive: boolean }>`
-  flex: 1;
-  padding: 0.75rem 1rem;
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 0.9rem;
-  font-weight: 700;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  
-  ${({ $isActive, theme }) => $isActive ? `
-    background-color: ${theme.colors.accent};
-    color: ${theme.colors.background};
-    border: 1px solid ${theme.colors.accent};
-    box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
-  ` : `
-    background-color: rgba(0, 0, 0, 0.2);
-    color: rgba(224, 224, 224, 0.7);
-    border: 1px solid rgba(224, 224, 224, 0.1);
-    
-    &:hover {
-      border-color: rgba(57, 255, 20, 0.3);
-      color: ${theme.colors.accent};
-    }
-  `}
-`;
-
-const SlotCountDuration = styled.span`
-  font-size: 0.7rem;
-  opacity: 0.7;
-  display: block;
-  margin-top: 0.25rem;
-`;
-
 const LoadingContainer = styled.div`
   display: flex;
   justify-content: center;
@@ -489,19 +374,7 @@ export default function EventDetailPage() {
     fetchEvent();
   }, [id, user?.id]);
 
-  const handleSlotClick = (slotId: string) => {
-    setSelectedSlotIds((prev) => {
-      if (prev.includes(slotId)) {
-        // Deselect all
-        return [];
-      } else {
-        // Select single slot
-        return [slotId];
-      }
-    });
-  };
-
-  // Handle slot click with multi-slot count support
+  // Handle slot click
   const handleSlotClickWithCount = (slotId: string) => {
     // If already selected, deselect
     if (selectedSlotIds.includes(slotId)) {
@@ -545,11 +418,6 @@ export default function EventDetailPage() {
       setSelectedSlotIds(slotsToSelect);
     }
     // Otherwise don't select anything (not enough consecutive slots available)
-  };
-
-  const handleSlotCountChange = (count: number) => {
-    setSelectedSlotCount(count);
-    setSelectedSlotIds([]); // Clear selection when changing slot count
   };
 
   const handleBook = async () => {
