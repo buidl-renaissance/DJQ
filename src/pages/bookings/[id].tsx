@@ -347,72 +347,6 @@ const ErrorMessage = styled.div`
   text-align: center;
 `;
 
-const B2BInviteBanner = styled.div`
-  background: linear-gradient(135deg, rgba(255, 45, 149, 0.15), rgba(255, 100, 180, 0.15));
-  border: 1px solid rgba(255, 45, 149, 0.4);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  text-align: center;
-`;
-
-const B2BInviteTitle = styled.h2`
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.secondary};
-  margin: 0 0 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-`;
-
-const B2BInviteText = styled.p`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.9rem;
-  color: rgba(224, 224, 224, 0.8);
-  margin: 0 0 1rem;
-  
-  strong {
-    color: ${({ theme }) => theme.colors.contrast};
-  }
-`;
-
-const AcceptB2BButton = styled.button`
-  width: 100%;
-  padding: 1rem;
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  background: linear-gradient(135deg, ${({ theme }) => theme.colors.secondary}, #ff6eb4);
-  color: ${({ theme }) => theme.colors.background};
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  
-  &:hover:not(:disabled) {
-    box-shadow: 0 4px 15px rgba(255, 45, 149, 0.4);
-    transform: translateY(-2px);
-  }
-  
-  &:disabled {
-    background: rgba(224, 224, 224, 0.2);
-    color: rgba(224, 224, 224, 0.4);
-    cursor: not-allowed;
-  }
-`;
-
-const B2BAlreadyAccepted = styled.div`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.85rem;
-  color: rgba(224, 224, 224, 0.6);
-  padding: 0.75rem;
-  background-color: rgba(224, 224, 224, 0.05);
-  border-radius: 8px;
-`;
-
 const ArrowLeftIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <line x1="19" y1="12" x2="5" y2="12" />
@@ -456,7 +390,7 @@ interface User {
 
 export default function BookingDetailPage() {
   const router = useRouter();
-  const { id, confirmed, b2b } = router.query;
+  const { id, confirmed } = router.query;
   const { user } = useUser();
 
   const [booking, setBooking] = useState<BookingData | null>(null);
@@ -467,12 +401,7 @@ export default function BookingDetailPage() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
-  const [acceptingB2B, setAcceptingB2B] = useState(false);
   const showConfirmation = confirmed === 'true';
-  const isB2BInvite = b2b === 'invite';
-  
-  // Check if current user is the booking owner
-  const isOwner = booking?.booker?.id === user?.id;
   
   // Clear the confirmation query param after showing
   useEffect(() => {
@@ -535,8 +464,8 @@ export default function BookingDetailPage() {
       return `${start} - ${end}`;
     };
 
-    // Link to the booking with a B2B request context
-    const b2bUrl = `${getBaseUrl()}/bookings/${booking.id}?b2b=invite`;
+    // Link to the dedicated B2B invite page
+    const b2bUrl = `${getBaseUrl()}/b2b/${booking.id}`;
     const displayName = user?.displayName || user?.username || 'A DJ';
     
     const result = await share({
@@ -596,38 +525,6 @@ export default function BookingDetailPage() {
       setError(err instanceof Error ? err.message : 'Failed to cancel booking');
     } finally {
       setCancelLoading(false);
-    }
-  };
-
-  const handleAcceptB2BInvite = async () => {
-    if (!user?.username || !booking?.booker?.username) return;
-
-    setAcceptingB2B(true);
-    setError(null);
-    try {
-      // Create a B2B request from the visitor to the booker
-      // fromSharedInvite: true triggers auto-acceptance since booker already invited
-      const response = await fetch(`/api/bookings/${id}/b2b`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user.username,
-          targetUsername: booking.booker.username,
-          fromSharedInvite: true,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to accept invite');
-      }
-
-      // Refresh the page to show updated status
-      router.replace(`/bookings/${id}?confirmed=true`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to accept invite');
-    } finally {
-      setAcceptingB2B(false);
     }
   };
 
@@ -699,36 +596,6 @@ export default function BookingDetailPage() {
               Your set has been confirmed. See you on the decks!
             </ConfirmationText>
           </ConfirmationBanner>
-        )}
-
-        {/* B2B Invite Banner for visitors */}
-        {isB2BInvite && !isOwner && booking.allowB2B && (
-          <B2BInviteBanner>
-            <B2BInviteTitle>B2B Invite</B2BInviteTitle>
-            {booking.b2bPartner ? (
-              <B2BAlreadyAccepted>
-                This slot already has a B2B partner
-              </B2BAlreadyAccepted>
-            ) : booking.booker ? (
-              <>
-                <B2BInviteText>
-                  <strong>@{booking.booker.username}</strong> wants you to go B2B with them!
-                </B2BInviteText>
-                {user ? (
-                  <AcceptB2BButton 
-                    onClick={handleAcceptB2BInvite} 
-                    disabled={acceptingB2B}
-                  >
-                    {acceptingB2B ? 'Joining...' : 'Join as B2B Partner'}
-                  </AcceptB2BButton>
-                ) : (
-                  <B2BAlreadyAccepted>
-                    Sign in to accept this B2B invite
-                  </B2BAlreadyAccepted>
-                )}
-              </>
-            ) : null}
-          </B2BInviteBanner>
         )}
 
         <BookingHeader>
