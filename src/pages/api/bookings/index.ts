@@ -52,8 +52,17 @@ export default async function handler(
     // Group consecutive slots by event and status
     const groupedBookings = groupConsecutiveSlots(bookings);
 
+    // Filter out cancelled bookings that are older than 1 hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const filteredBookings = groupedBookings.filter(group => {
+      if (group.status === 'cancelled') {
+        return group.updatedAt > oneHourAgo;
+      }
+      return true;
+    });
+
     const bookingsWithB2B = await Promise.all(
-      groupedBookings.map(async (group) => {
+      filteredBookings.map(async (group) => {
         // Use the first booking ID for B2B lookups (B2B is per-slot)
         const primaryBookingId = group.bookingIds[0];
         
@@ -154,6 +163,7 @@ function groupConsecutiveSlots(bookings: BookingWithSlot[]) {
     status: string;
     slotCount: number;
     lastSlotIndex: number;
+    updatedAt: Date;
   }[] = [];
 
   for (const row of sorted) {
@@ -171,6 +181,10 @@ function groupConsecutiveSlots(bookings: BookingWithSlot[]) {
       lastGroup.slotEndTime = row.slot.endTime;
       lastGroup.slotCount++;
       lastGroup.lastSlotIndex = row.slot.slotIndex;
+      // Keep the most recent updatedAt
+      if (row.booking.updatedAt > lastGroup.updatedAt) {
+        lastGroup.updatedAt = row.booking.updatedAt;
+      }
     } else {
       // Start a new group
       groups.push({
@@ -183,6 +197,7 @@ function groupConsecutiveSlots(bookings: BookingWithSlot[]) {
         status: row.booking.status,
         slotCount: 1,
         lastSlotIndex: row.slot.slotIndex,
+        updatedAt: row.booking.updatedAt,
       });
     }
   }
