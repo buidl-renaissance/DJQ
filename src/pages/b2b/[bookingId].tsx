@@ -4,6 +4,7 @@ import Head from 'next/head';
 import styled, { ThemeProvider, keyframes } from 'styled-components';
 import { theme } from '@/styles/theme';
 import { useUser } from '@/contexts/UserContext';
+import EventSlotCard from '@/components/bookings/EventSlotCard';
 
 interface BookingInvite {
   id: string;
@@ -25,15 +26,6 @@ interface BookingInvite {
   allowB2B: boolean;
 }
 
-const glowPulse = keyframes`
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(255, 45, 149, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(255, 45, 149, 0.5);
-  }
-`;
-
 const fadeIn = keyframes`
   from {
     opacity: 0;
@@ -42,6 +34,12 @@ const fadeIn = keyframes`
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+`;
+
+const spin = keyframes`
+  to {
+    transform: rotate(360deg);
   }
 `;
 
@@ -70,16 +68,43 @@ const Container = styled.div`
   }
 `;
 
-const Card = styled.div`
-  background: ${({ theme }) => theme.colors.dark};
-  border: 1px solid ${({ theme }) => theme.colors.secondary};
-  border-radius: 16px;
-  padding: 1.5rem;
+const LoadingContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  position: relative;
+  z-index: 1;
+`;
+
+const LoadingSpinner = styled.div`
+  width: 100px;
+  height: 100px;
+  background-color: ${({ theme }) => theme.colors.dark};
+  border: 3px solid ${({ theme }) => theme.colors.darkGray};
+  border-top-color: ${({ theme }) => theme.colors.secondary};
+  border-right-color: ${({ theme }) => theme.colors.accent};
+  border-radius: 50%;
+  animation: ${spin} 1s linear infinite;
+  box-shadow: 
+    0 0 20px rgba(255, 45, 149, 0.3),
+    inset 0 0 20px rgba(57, 255, 20, 0.1);
+`;
+
+const LoadingLabel = styled.p`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 1rem;
+  color: ${({ theme }) => theme.colors.secondary};
+  text-transform: uppercase;
+  letter-spacing: 2px;
+`;
+
+const ContentWrapper = styled.div`
   max-width: 420px;
   width: 100%;
   position: relative;
   z-index: 1;
-  animation: ${glowPulse} 3s ease-in-out infinite, ${fadeIn} 0.5s ease-out;
+  animation: ${fadeIn} 0.5s ease-out;
 `;
 
 const InviteHeader = styled.div`
@@ -121,54 +146,16 @@ const InviterName = styled.p`
   }
 `;
 
-const EventSection = styled.div`
-  background: ${({ theme }) => theme.colors.background};
-  border: 1px solid ${({ theme }) => theme.colors.darkGray};
-  border-radius: 12px;
-  padding: 1.25rem;
-  margin-bottom: 2rem;
-`;
-
-const EventTitle = styled.h2`
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1rem;
-  color: ${({ theme }) => theme.colors.contrast};
-  margin: 0 0 1rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-`;
-
-const EventDetail = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-  
-  &:last-child {
-    margin-bottom: 0;
-  }
-`;
-
-const DetailIcon = styled.span`
-  width: 32px;
-  height: 32px;
-  background: ${({ theme }) => theme.colors.dark};
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-`;
-
-const DetailText = styled.span`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.85rem;
-  color: ${({ theme }) => theme.colors.contrast};
-  opacity: 0.9;
+const EventCardWrapper = styled.div`
+  margin-bottom: 1.5rem;
 `;
 
 const FormSection = styled.div`
   margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid ${({ theme }) => theme.colors.secondary};
+  border-radius: 12px;
+  background: rgba(255, 45, 149, 0.05);
 `;
 
 const SectionTitle = styled.h3`
@@ -339,13 +326,6 @@ const LoggedInMessage = styled.div`
   }
 `;
 
-const LoadingText = styled.p`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 1rem;
-  color: ${({ theme }) => theme.colors.contrast};
-  text-align: center;
-`;
-
 const CheckIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
     <polyline points="20,6 9,17 4,12" />
@@ -390,24 +370,6 @@ export default function B2BInvitePage() {
 
     fetchBooking();
   }, [bookingId]);
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
-  const formatTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
 
   const handleAcceptAsLoggedInUser = async () => {
     if (!user?.username || !booking?.booker?.username) return;
@@ -491,9 +453,10 @@ export default function B2BInvitePage() {
           <title>B2B Invite | DJQ</title>
         </Head>
         <Container>
-          <Card>
-            <LoadingText>Loading invite...</LoadingText>
-          </Card>
+          <LoadingContainer>
+            <LoadingSpinner />
+            <LoadingLabel>Loading invite...</LoadingLabel>
+          </LoadingContainer>
         </Container>
       </ThemeProvider>
     );
@@ -506,9 +469,9 @@ export default function B2BInvitePage() {
           <title>B2B Invite | DJQ</title>
         </Head>
         <Container>
-          <Card>
+          <ContentWrapper>
             <ErrorMessage>{error}</ErrorMessage>
-          </Card>
+          </ContentWrapper>
         </Container>
       </ThemeProvider>
     );
@@ -521,9 +484,9 @@ export default function B2BInvitePage() {
           <title>B2B Invite | DJQ</title>
         </Head>
         <Container>
-          <Card>
+          <ContentWrapper>
             <ErrorMessage>Invite not found</ErrorMessage>
-          </Card>
+          </ContentWrapper>
         </Container>
       </ThemeProvider>
     );
@@ -539,7 +502,7 @@ export default function B2BInvitePage() {
         <meta name="description" content={`Join ${booking.booker?.displayName} for a B2B set at ${booking.eventTitle}`} />
       </Head>
       <Container>
-        <Card>
+        <ContentWrapper>
           <InviteHeader>
             <B2BIcon>🎧</B2BIcon>
             <InviteTitle>B2B Invite</InviteTitle>
@@ -548,19 +511,14 @@ export default function B2BInvitePage() {
             </InviterName>
           </InviteHeader>
 
-          <EventSection>
-            <EventTitle>{booking.eventTitle}</EventTitle>
-            <EventDetail>
-              <DetailIcon>📅</DetailIcon>
-              <DetailText>{formatDate(booking.eventDate)}</DetailText>
-            </EventDetail>
-            <EventDetail>
-              <DetailIcon>🕐</DetailIcon>
-              <DetailText>
-                {formatTime(booking.slotStartTime)} – {formatTime(booking.slotEndTime)}
-              </DetailText>
-            </EventDetail>
-          </EventSection>
+          <EventCardWrapper>
+            <EventSlotCard
+              eventTitle={booking.eventTitle}
+              eventDate={booking.eventDate}
+              slotStartTime={booking.slotStartTime}
+              slotEndTime={booking.slotEndTime}
+            />
+          </EventCardWrapper>
 
           {success ? (
             <SuccessMessage>
@@ -656,7 +614,7 @@ export default function B2BInvitePage() {
               </Form>
             </FormSection>
           )}
-        </Card>
+        </ContentWrapper>
       </Container>
     </ThemeProvider>
   );
