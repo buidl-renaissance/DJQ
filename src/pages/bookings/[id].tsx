@@ -396,7 +396,7 @@ export default function BookingDetailPage() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
-  const [showConfirmation, setShowConfirmation] = useState(confirmed === 'true');
+  const showConfirmation = confirmed === 'true';
   
   // Clear the confirmation query param after showing
   useEffect(() => {
