@@ -17,13 +17,15 @@ interface BookingInvite {
     id: string;
     displayName: string;
     username: string;
+    pfpUrl?: string;
   };
-  b2bPartner: {
+  b2bPartners: {
     id: string;
     displayName: string;
     username: string;
-  } | null;
+  }[];
   allowB2B: boolean;
+  maxB2BPartners: number;
 }
 
 const fadeIn = keyframes`
@@ -531,9 +533,9 @@ export default function B2BInvitePage() {
                 You and @{booking.booker?.username} are now B2B partners for this set.
               </SuccessText>
             </SuccessMessage>
-          ) : booking.b2bPartner ? (
+          ) : booking.b2bPartners.length >= booking.maxB2BPartners ? (
             <AlreadyTakenMessage>
-              This slot already has a B2B partner (@{booking.b2bPartner.username})
+              This slot already has the maximum B2B partners ({booking.b2bPartners.map(p => '@' + p.username).join(', ')})
             </AlreadyTakenMessage>
           ) : isOwnInvite ? (
             <AlreadyTakenMessage>

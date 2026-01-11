@@ -153,11 +153,11 @@ export default async function handler(
         username: bookerResult[0].username || 'unknown',
       } : null;
 
-      // Check for B2B partner on any of the bookings
+      // Check for B2B partners on any of the bookings (up to 2 partners = 3 total participants)
       const bookingIds = relatedBookings.map(r => r.booking.id);
-      let b2bPartner: { id: string; displayName: string; username: string } | null = null;
+      const b2bPartners: { id: string; displayName: string; username: string }[] = [];
       
-      const b2bResult = await db
+      const b2bResults = await db
         .select({
           request: b2bRequests,
         })
@@ -167,14 +167,13 @@ export default async function handler(
             inArray(b2bRequests.bookingId, bookingIds),
             eq(b2bRequests.status, 'accepted')
           )
-        )
-        .limit(1);
+        );
 
-      if (b2bResult[0]) {
+      for (const b2bResult of b2bResults) {
         const bookingDjId = booking.djId;
-        const partnerUserId = b2bResult[0].request.requesterId === bookingDjId
-          ? b2bResult[0].request.requesteeId
-          : b2bResult[0].request.requesterId;
+        const partnerUserId = b2bResult.request.requesterId === bookingDjId
+          ? b2bResult.request.requesteeId
+          : b2bResult.request.requesterId;
 
         const partnerResult = await db
           .select()
@@ -183,16 +182,16 @@ export default async function handler(
           .limit(1);
 
         if (partnerResult[0]) {
-          b2bPartner = {
+          b2bPartners.push({
             id: partnerResult[0].id,
             displayName: partnerResult[0].displayName || 'Unknown',
             username: partnerResult[0].username || 'unknown',
-          };
+          });
         }
       }
 
-      // Check for pending B2B request on any booking
-      let pendingB2BRequest: { id: string; targetUser: { displayName: string; username: string } } | null = null;
+      // Check for pending B2B requests on any booking
+      const pendingB2BRequests: { id: string; targetUser: { displayName: string; username: string } }[] = [];
       
       const pendingB2B = await db
         .select({
@@ -204,11 +203,10 @@ export default async function handler(
             inArray(b2bRequests.bookingId, bookingIds),
             eq(b2bRequests.status, 'pending')
           )
-        )
-        .limit(1);
+        );
 
-      if (pendingB2B[0]) {
-        const targetUserId = pendingB2B[0].request.requesteeId;
+      for (const pending of pendingB2B) {
+        const targetUserId = pending.request.requesteeId;
         const targetResult = await db
           .select()
           .from(users)
@@ -216,13 +214,13 @@ export default async function handler(
           .limit(1);
 
         if (targetResult[0]) {
-          pendingB2BRequest = {
-            id: pendingB2B[0].request.id,
+          pendingB2BRequests.push({
+            id: pending.request.id,
             targetUser: {
               displayName: targetResult[0].displayName || 'Unknown',
               username: targetResult[0].username || 'unknown',
             },
-          };
+          });
         }
       }
 
@@ -238,9 +236,10 @@ export default async function handler(
           slotStartTime: firstSlot.startTime,
           slotEndTime: lastSlot.endTime,
           booker,
-          b2bPartner,
-          pendingB2BRequest,
+          b2bPartners,
+          pendingB2BRequests,
           allowB2B: event.allowB2B,
+          maxB2BPartners: 2, // Max 2 additional partners = 3 total participants
         },
       });
     } catch (error) {

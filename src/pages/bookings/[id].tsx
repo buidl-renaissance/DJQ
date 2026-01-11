@@ -179,10 +179,27 @@ const B2BCard = styled(Card)`
   border-color: rgba(255, 45, 149, 0.2);
 `;
 
+const B2BPartnersList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
 const B2BStatus = styled.div`
   display: flex;
   align-items: center;
   gap: 0.75rem;
+`;
+
+const B2BSlotIndicator = styled.div`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.7rem;
+  color: rgba(224, 224, 224, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(224, 224, 224, 0.1);
 `;
 
 const B2BAvatar = styled.div`
@@ -384,19 +401,20 @@ interface BookingData {
     displayName: string;
     username: string;
   } | null;
-  b2bPartner: {
+  b2bPartners: {
     id: string;
     displayName: string;
     username: string;
-  } | null;
-  pendingB2BRequest: {
+  }[];
+  pendingB2BRequests: {
     id: string;
     targetUser: {
       displayName: string;
       username: string;
     };
-  } | null;
+  }[];
   allowB2B: boolean;
+  maxB2BPartners: number;
 }
 
 interface User {
@@ -634,35 +652,53 @@ export default function BookingDetailPage() {
 
         {booking.allowB2B && (
           <Section>
-            <SectionTitle>B2B Partner</SectionTitle>
+            <SectionTitle>B2B Partners</SectionTitle>
             <B2BCard>
-              {booking.b2bPartner ? (
-                <B2BStatus>
-                  <B2BAvatar>{getInitials(booking.b2bPartner.displayName)}</B2BAvatar>
-                  <B2BInfo>
-                    <B2BName>{booking.b2bPartner.displayName}</B2BName>
-                    <B2BLabel>@{booking.b2bPartner.username}</B2BLabel>
-                  </B2BInfo>
-                </B2BStatus>
-              ) : booking.pendingB2BRequest ? (
-                <PendingRequest>
-                  <PendingBadge>
-                    Invite sent to {booking.pendingB2BRequest.targetUser.displayName}
-                  </PendingBadge>
-                </PendingRequest>
-              ) : (
-                <NoB2B>
-                  <NoB2BText>No B2B partner yet. Invite someone to share the decks!</NoB2BText>
-                  <InviteButton onClick={handleOpenInvite}>
-                    Invite Partner
-                  </InviteButton>
-                  <ShareB2BButton onClick={handleShareB2BInvite}>
-                    <ShareIcon />
-                    Share B2B Invite Link
-                    {shareFeedback && <ShareFeedback>{shareFeedback}</ShareFeedback>}
-                  </ShareB2BButton>
-                </NoB2B>
-              )}
+              <B2BSlotIndicator>
+                {booking.b2bPartners.length + 1} of 3 participants
+              </B2BSlotIndicator>
+              
+              <B2BPartnersList>
+                {/* Show existing partners */}
+                {booking.b2bPartners.map((partner) => (
+                  <B2BStatus key={partner.id}>
+                    <B2BAvatar>{getInitials(partner.displayName)}</B2BAvatar>
+                    <B2BInfo>
+                      <B2BName>{partner.displayName}</B2BName>
+                      <B2BLabel>@{partner.username}</B2BLabel>
+                    </B2BInfo>
+                  </B2BStatus>
+                ))}
+
+                {/* Show pending invites */}
+                {booking.pendingB2BRequests.map((request) => (
+                  <PendingRequest key={request.id}>
+                    <PendingBadge>
+                      Invite sent to {request.targetUser.displayName}
+                    </PendingBadge>
+                  </PendingRequest>
+                ))}
+
+                {/* Show invite option if there's room for more partners */}
+                {booking.b2bPartners.length + booking.pendingB2BRequests.length < booking.maxB2BPartners && (
+                  <NoB2B>
+                    {booking.b2bPartners.length === 0 && booking.pendingB2BRequests.length === 0 && (
+                      <NoB2BText>No B2B partners yet. Invite someone to share the decks!</NoB2BText>
+                    )}
+                    {(booking.b2bPartners.length > 0 || booking.pendingB2BRequests.length > 0) && (
+                      <NoB2BText>Room for {booking.maxB2BPartners - booking.b2bPartners.length - booking.pendingB2BRequests.length} more partner{booking.maxB2BPartners - booking.b2bPartners.length - booking.pendingB2BRequests.length > 1 ? 's' : ''}</NoB2BText>
+                    )}
+                    <InviteButton onClick={handleOpenInvite}>
+                      Invite Partner
+                    </InviteButton>
+                    <ShareB2BButton onClick={handleShareB2BInvite}>
+                      <ShareIcon />
+                      Share B2B Invite Link
+                      {shareFeedback && <ShareFeedback>{shareFeedback}</ShareFeedback>}
+                    </ShareB2BButton>
+                  </NoB2B>
+                )}
+              </B2BPartnersList>
             </B2BCard>
           </Section>
         )}

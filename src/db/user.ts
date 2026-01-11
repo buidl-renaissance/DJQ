@@ -123,6 +123,56 @@ export async function getUserByUsername(username: string): Promise<User | null> 
   } as User;
 }
 
+export async function updateUserDisplayName(userId: string, displayName: string): Promise<User | null> {
+  const existing = await getUserById(userId);
+  if (!existing) return null;
+
+  const now = new Date();
+  await db
+    .update(users)
+    .set({
+      displayName,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+
+  return {
+    ...existing,
+    displayName,
+    updatedAt: now,
+  } as User;
+}
+
+export interface UpdateUserProfileData {
+  displayName?: string;
+  pfpUrl?: string | null;
+}
+
+export async function updateUserProfile(userId: string, data: UpdateUserProfileData): Promise<User | null> {
+  const existing = await getUserById(userId);
+  if (!existing) return null;
+
+  const now = new Date();
+  const updateData: { displayName?: string; pfpUrl?: string | null; updatedAt: Date } = { updatedAt: now };
+
+  if (data.displayName !== undefined) {
+    updateData.displayName = data.displayName;
+  }
+  if (data.pfpUrl !== undefined) {
+    updateData.pfpUrl = data.pfpUrl;
+  }
+
+  await db
+    .update(users)
+    .set(updateData)
+    .where(eq(users.id, userId));
+
+  return {
+    ...existing,
+    ...updateData,
+  } as User;
+}
+
 export interface CreateUserWithPhoneData {
   username: string;
   displayName: string; // name

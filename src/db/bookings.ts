@@ -303,20 +303,7 @@ export async function createB2BRequest(input: CreateB2BRequestInput): Promise<B2
     }
   }
 
-  // Check for existing pending B2B requests for this booking
-  const existingRequests = await db
-    .select()
-    .from(b2bRequests)
-    .where(and(
-      eq(b2bRequests.bookingId, bookingId),
-      eq(b2bRequests.status, 'pending')
-    ));
-
-  if (existingRequests.length > 0) {
-    throw new Error('There is already a pending B2B request for this booking');
-  }
-
-  // Check for existing accepted B2B for this booking
+  // Check for existing accepted B2B partners for this booking (max 2 partners = 3 total participants)
   const acceptedB2B = await db
     .select()
     .from(b2bRequests)
@@ -325,8 +312,31 @@ export async function createB2BRequest(input: CreateB2BRequestInput): Promise<B2
       eq(b2bRequests.status, 'accepted')
     ));
 
-  if (acceptedB2B.length > 0) {
-    throw new Error('This slot already has a B2B partner');
+  if (acceptedB2B.length >= 2) {
+    throw new Error('This slot already has the maximum number of B2B partners (3 total participants)');
+  }
+
+  // Check if this user is already a B2B partner for this booking
+  const targetUserId = initiatedBy === 'booker' ? requesteeId : requesterId;
+  const existingPartnership = acceptedB2B.find(
+    r => r.requesterId === targetUserId || r.requesteeId === targetUserId
+  );
+  if (existingPartnership) {
+    throw new Error('This user is already a B2B partner for this booking');
+  }
+
+  // Check for existing pending request FROM or TO the same user
+  const existingPendingForUser = await db
+    .select()
+    .from(b2bRequests)
+    .where(and(
+      eq(b2bRequests.bookingId, bookingId),
+      eq(b2bRequests.status, 'pending'),
+      eq(b2bRequests.requesteeId, targetUserId)
+    ));
+
+  if (existingPendingForUser.length > 0) {
+    throw new Error('There is already a pending B2B request for this user');
   }
 
   const id = uuidv4();
