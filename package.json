@@ -13,6 +13,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.966.0",
     "@farcaster/miniapp-sdk": "^0.2.1",
     "@libsql/client": "^0.15.15",
     "drizzle-orm": "^0.45.1",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
 import AppLayout from '@/components/layout/AppLayout';
 import { useUser } from '@/contexts/UserContext';
@@ -12,6 +12,15 @@ const fadeIn = keyframes`
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+`;
+
+const spin = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 `;
 
@@ -39,9 +48,18 @@ const ProfileSection = styled.div`
   margin-bottom: 2rem;
 `;
 
+const AvatarWrapper = styled.div`
+  position: relative;
+  cursor: pointer;
+  
+  &:hover .avatar-overlay {
+    opacity: 1;
+  }
+`;
+
 const Avatar = styled.div<{ $hasImage: boolean }>`
-  width: 100px;
-  height: 100px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   background: ${({ theme, $hasImage }) => 
     $hasImage ? 'transparent' : theme.colors.darkGray};
@@ -49,9 +67,40 @@ const Avatar = styled.div<{ $hasImage: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1rem;
   overflow: hidden;
   box-shadow: 0 0 20px rgba(57, 255, 20, 0.2);
+  transition: all 0.2s;
+`;
+
+const AvatarOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+`;
+
+const EditIcon = styled.div`
+  width: 24px;
+  height: 24px;
+  color: ${({ theme }) => theme.colors.accent};
+`;
+
+const EditText = styled.span`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.6rem;
+  color: ${({ theme }) => theme.colors.accent};
+  text-transform: uppercase;
+  letter-spacing: 1px;
 `;
 
 const AvatarImage = styled.img`
@@ -62,7 +111,7 @@ const AvatarImage = styled.img`
 
 const AvatarPlaceholder = styled.span`
   font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 2.5rem;
+  font-size: 3rem;
   color: ${({ theme }) => theme.colors.accent};
 `;
 
@@ -71,6 +120,28 @@ const Username = styled.p`
   font-size: 0.9rem;
   color: ${({ theme }) => theme.colors.contrast};
   opacity: 0.7;
+  margin-top: 0.75rem;
+`;
+
+const RemovePhotoButton = styled.button`
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.secondary};
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 0.5rem;
+  
+  &:hover {
+    text-decoration: underline;
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `;
 
 const Card = styled.div`
@@ -101,14 +172,6 @@ const FormGroup = styled.div`
   }
 `;
 
-const Label = styled.label`
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 0.65rem;
-  color: ${({ theme }) => theme.colors.accent};
-  text-transform: uppercase;
-  letter-spacing: 1px;
-`;
-
 const Input = styled.input`
   background: ${({ theme }) => theme.colors.background};
   border: 1px solid ${({ theme }) => theme.colors.darkGray};
@@ -131,61 +194,8 @@ const Input = styled.input`
   }
 `;
 
-const AvatarPreviewContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 0.75rem;
-`;
-
-const AvatarPreview = styled.div<{ $hasImage: boolean }>`
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: ${({ theme, $hasImage }) => 
-    $hasImage ? 'transparent' : theme.colors.darkGray};
-  border: 2px solid ${({ theme }) => theme.colors.darkGray};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  flex-shrink: 0;
-`;
-
-const AvatarPreviewImage = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`;
-
-const AvatarPreviewPlaceholder = styled.span`
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1.5rem;
-  color: ${({ theme }) => theme.colors.contrast};
-  opacity: 0.5;
-`;
-
-const PreviewLabel = styled.span`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.75rem;
-  color: ${({ theme }) => theme.colors.contrast};
-  opacity: 0.6;
-`;
-
-const ClearButton = styled.button`
-  background: transparent;
-  border: 1px solid ${({ theme }) => theme.colors.secondary};
-  border-radius: 4px;
-  padding: 0.5rem 0.75rem;
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.7rem;
-  color: ${({ theme }) => theme.colors.secondary};
-  cursor: pointer;
-  transition: all 0.2s;
-  
-  &:hover {
-    background: rgba(255, 45, 149, 0.1);
-  }
+const HiddenFileInput = styled.input`
+  display: none;
 `;
 
 const SaveButton = styled.button<{ $loading?: boolean }>`
@@ -282,60 +292,154 @@ const LoginButton = styled.button`
   }
 `;
 
-const HelperText = styled.span`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.7rem;
-  color: ${({ theme }) => theme.colors.contrast};
-  opacity: 0.5;
-  margin-top: 0.25rem;
+const Spinner = styled.div`
+  width: 32px;
+  height: 32px;
+  border: 2px solid ${({ theme }) => theme.colors.darkGray};
+  border-top-color: ${({ theme }) => theme.colors.accent};
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
 `;
+
+// Pencil/Edit SVG icon
+const PencilIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="100%" height="100%">
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+  </svg>
+);
+
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function AccountPage() {
   const { user, isLoading } = useUser();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [displayName, setDisplayName] = useState('');
-  const [pfpUrl, setPfpUrl] = useState('');
+  const [currentPfpUrl, setCurrentPfpUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Initialize form fields when user loads
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
-      setPfpUrl(user.pfpUrl || '');
+      setCurrentPfpUrl(user.pfpUrl || null);
       setPreviewUrl(user.pfpUrl || null);
     }
   }, [user]);
 
-  // Update preview when URL changes (with debounce)
-  useEffect(() => {
-    const trimmedUrl = pfpUrl.trim();
-    if (!trimmedUrl) {
-      setPreviewUrl(null);
+  const hasNameChanges = () => {
+    return displayName.trim() !== (user?.displayName || '');
+  };
+
+  const handleFileSelect = async (file: File) => {
+    // Validate file type
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setMessage({ type: 'error', text: 'Invalid file type. Please use JPG, PNG, GIF, or WebP.' });
       return;
     }
 
-    // Basic URL validation for preview
-    try {
-      const url = new URL(trimmedUrl);
-      if (url.protocol === 'http:' || url.protocol === 'https:') {
-        setPreviewUrl(trimmedUrl);
-      } else {
-        setPreviewUrl(null);
-      }
-    } catch {
-      setPreviewUrl(null);
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      setMessage({ type: 'error', text: 'File too large. Maximum size is 5MB.' });
+      return;
     }
-  }, [pfpUrl]);
 
-  const hasChanges = () => {
-    const nameChanged = displayName.trim() !== (user?.displayName || '');
-    const pfpChanged = pfpUrl.trim() !== (user?.pfpUrl || '');
-    return nameChanged || pfpChanged;
+    setUploading(true);
+    setMessage(null);
+
+    // Show local preview immediately
+    const localPreview = URL.createObjectURL(file);
+    setPreviewUrl(localPreview);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/user/upload-avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage({ type: 'error', text: data.error || 'Failed to upload image' });
+        // Revert preview on error
+        setPreviewUrl(currentPfpUrl);
+        return;
+      }
+
+      // Update with server URL
+      if (data.user?.pfpUrl) {
+        setCurrentPfpUrl(data.user.pfpUrl);
+        setPreviewUrl(data.user.pfpUrl);
+      }
+      
+      setMessage({ type: 'success', text: 'Profile picture updated!' });
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      setMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
+      // Revert preview on error
+      setPreviewUrl(currentPfpUrl);
+    } finally {
+      setUploading(false);
+      // Clean up local preview URL
+      URL.revokeObjectURL(localPreview);
+    }
   };
 
-  const handleSave = async () => {
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
+  const handleAvatarClick = () => {
+    if (!uploading) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!currentPfpUrl) return;
+    
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch('/api/user/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pfpUrl: null }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage({ type: 'error', text: data.error || 'Failed to remove picture' });
+        return;
+      }
+
+      setCurrentPfpUrl(null);
+      setPreviewUrl(null);
+      setMessage({ type: 'success', text: 'Profile picture removed!' });
+    } catch (err) {
+      console.error('Error removing picture:', err);
+      setMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveName = async () => {
     if (!displayName.trim()) {
       setMessage({ type: 'error', text: 'Name cannot be empty' });
       return;
@@ -345,22 +449,10 @@ export default function AccountPage() {
     setMessage(null);
 
     try {
-      const updateData: { displayName?: string; pfpUrl?: string | null } = {};
-      
-      // Only include fields that changed
-      if (displayName.trim() !== (user?.displayName || '')) {
-        updateData.displayName = displayName.trim();
-      }
-      
-      const trimmedPfpUrl = pfpUrl.trim();
-      if (trimmedPfpUrl !== (user?.pfpUrl || '')) {
-        updateData.pfpUrl = trimmedPfpUrl || null;
-      }
-
       const res = await fetch('/api/user/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
+        body: JSON.stringify({ displayName: displayName.trim() }),
       });
 
       const data = await res.json();
@@ -370,25 +462,17 @@ export default function AccountPage() {
         return;
       }
 
-      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      setMessage({ type: 'success', text: 'Name updated successfully!' });
       
-      // Update form fields from server response
-      if (data.user) {
-        setDisplayName(data.user.displayName || '');
-        setPfpUrl(data.user.pfpUrl || '');
-        setPreviewUrl(data.user.pfpUrl || null);
+      if (data.user?.displayName) {
+        setDisplayName(data.user.displayName);
       }
     } catch (err) {
-      console.error('Error updating profile:', err);
+      console.error('Error updating name:', err);
       setMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleClearPfp = () => {
-    setPfpUrl('');
-    setPreviewUrl(null);
   };
 
   const getInitials = (name: string | null | undefined) => {
@@ -432,25 +516,53 @@ export default function AccountPage() {
         <PageTitle>Account</PageTitle>
 
         <ProfileSection>
-          <Avatar $hasImage={!!previewUrl}>
-            {previewUrl ? (
-              <AvatarImage src={previewUrl} alt={displayName || 'Profile'} />
-            ) : (
-              <AvatarPlaceholder>{getInitials(displayName)}</AvatarPlaceholder>
+          <AvatarWrapper onClick={handleAvatarClick}>
+            <Avatar $hasImage={!!previewUrl}>
+              {uploading ? (
+                <Spinner />
+              ) : previewUrl ? (
+                <AvatarImage src={previewUrl} alt={displayName || 'Profile'} />
+              ) : (
+                <AvatarPlaceholder>{getInitials(displayName)}</AvatarPlaceholder>
+              )}
+            </Avatar>
+            {!uploading && (
+              <AvatarOverlay className="avatar-overlay">
+                <EditIcon>
+                  <PencilIcon />
+                </EditIcon>
+                <EditText>Edit</EditText>
+              </AvatarOverlay>
             )}
-          </Avatar>
+          </AvatarWrapper>
+          
           {user.username && <Username>@{user.username}</Username>}
+          
+          {previewUrl && (
+            <RemovePhotoButton 
+              onClick={handleRemovePhoto} 
+              disabled={saving || uploading}
+            >
+              Remove profile picture
+            </RemovePhotoButton>
+          )}
         </ProfileSection>
+
+        <HiddenFileInput
+          ref={fileInputRef}
+          type="file"
+          accept={ALLOWED_TYPES.join(',')}
+          onChange={handleFileInputChange}
+        />
 
         {message && (
           <Message $type={message.type}>{message.text}</Message>
         )}
 
         <Card>
-          <CardTitle>Profile</CardTitle>
+          <CardTitle>Display Name</CardTitle>
           
           <FormGroup>
-            <Label>Display Name</Label>
             <Input
               type="text"
               value={displayName}
@@ -460,45 +572,12 @@ export default function AccountPage() {
             />
           </FormGroup>
 
-          <FormGroup>
-            <Label>Profile Picture URL</Label>
-            <Input
-              type="url"
-              value={pfpUrl}
-              onChange={(e) => setPfpUrl(e.target.value)}
-              placeholder="https://example.com/image.jpg"
-            />
-            <HelperText>Enter a URL to an image (JPG, PNG, GIF, WebP)</HelperText>
-            
-            {(previewUrl || pfpUrl) && (
-              <AvatarPreviewContainer>
-                <AvatarPreview $hasImage={!!previewUrl}>
-                  {previewUrl ? (
-                    <AvatarPreviewImage 
-                      src={previewUrl} 
-                      alt="Preview"
-                      onError={() => setPreviewUrl(null)}
-                    />
-                  ) : (
-                    <AvatarPreviewPlaceholder>?</AvatarPreviewPlaceholder>
-                  )}
-                </AvatarPreview>
-                <PreviewLabel>{previewUrl ? 'Preview' : 'Invalid URL'}</PreviewLabel>
-                {pfpUrl && (
-                  <ClearButton onClick={handleClearPfp}>
-                    Clear
-                  </ClearButton>
-                )}
-              </AvatarPreviewContainer>
-            )}
-          </FormGroup>
-
           <SaveButton 
-            onClick={handleSave} 
-            disabled={saving || !hasChanges() || !displayName.trim()}
+            onClick={handleSaveName} 
+            disabled={saving || uploading || !hasNameChanges() || !displayName.trim()}
             $loading={saving}
           >
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? 'Saving...' : 'Save Name'}
           </SaveButton>
         </Card>
       </Container>
