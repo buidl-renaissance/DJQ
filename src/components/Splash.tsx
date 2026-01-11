@@ -218,8 +218,9 @@ const DefaultAvatar = styled.div`
 `;
 
 const LoadingSpinner = styled.div`
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
+  background-color: ${({ theme }) => theme.colors.dark};
   border: 3px solid ${({ theme }) => theme.colors.darkGray};
   border-top-color: ${({ theme }) => theme.colors.accent};
   border-right-color: ${({ theme }) => theme.colors.secondary};

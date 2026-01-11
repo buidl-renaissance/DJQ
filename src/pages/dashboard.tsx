@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import styled, { keyframes, ThemeProvider } from 'styled-components';
 import Head from 'next/head';
 import AppLayout from '@/components/layout/AppLayout';
@@ -253,11 +252,6 @@ const WelcomeText = styled.p`
   margin: 0 0 0.5rem;
 `;
 
-const UserName = styled.span`
-  color: ${({ theme }) => theme.colors.secondary};
-  text-shadow: 0 0 10px rgba(255, 45, 149, 0.5);
-`;
-
 // Dashboard Styles
 const DashboardContainer = styled.div`
   padding: 1rem;
@@ -422,77 +416,6 @@ const ChevronRight = () => (
 
 export default function DashboardPage() {
   const { user, isLoading } = useUser();
-  
-  const [showSplash, setShowSplash] = useState(true);
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [splashPhase, setSplashPhase] = useState<'loading' | 'welcome' | 'transitioning'>('loading');
-
-  useEffect(() => {
-    // After auth loading completes or 2 seconds (whichever is later), show welcome
-    const minLoadTime = 2000;
-    const startTime = Date.now();
-
-    const checkAuthAndTransition = () => {
-      const elapsed = Date.now() - startTime;
-      const remainingTime = Math.max(0, minLoadTime - elapsed);
-
-      // Wait for minimum time
-      setTimeout(() => {
-        if (user) {
-          // User is logged in - show welcome message then transition
-          setSplashPhase('welcome');
-          setShowWelcome(true);
-          
-          // After showing welcome, transition to dashboard
-          setTimeout(() => {
-            setSplashPhase('transitioning');
-            setTimeout(() => {
-              setShowSplash(false);
-            }, 300);
-          }, 1500);
-        } else if (!isLoading) {
-          // Not loading and no user - keep splash visible with login prompt
-          // User will need to authenticate via Farcaster
-          setSplashPhase('welcome');
-          setShowWelcome(true);
-        }
-      }, remainingTime);
-    };
-
-    if (!isLoading) {
-      checkAuthAndTransition();
-    } else {
-      // Start timer even while loading
-      const timer = setTimeout(() => {
-        if (user) {
-          setSplashPhase('welcome');
-          setShowWelcome(true);
-          setTimeout(() => {
-            setSplashPhase('transitioning');
-            setTimeout(() => {
-              setShowSplash(false);
-            }, 300);
-          }, 1500);
-        }
-      }, minLoadTime);
-
-      return () => clearTimeout(timer);
-    }
-  }, [user, isLoading]);
-
-  // Watch for user changes after initial load
-  useEffect(() => {
-    if (!isLoading && user && splashPhase === 'loading') {
-      setSplashPhase('welcome');
-      setShowWelcome(true);
-      setTimeout(() => {
-        setSplashPhase('transitioning');
-        setTimeout(() => {
-          setShowSplash(false);
-        }, 300);
-      }, 1500);
-    }
-  }, [user, isLoading, splashPhase]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -501,8 +424,9 @@ export default function DashboardPage() {
     return 'Good evening';
   };
 
-  // Splash Screen
-  if (showSplash) {
+  // Show minimal loading state only while auth is being checked
+  // No splash screen here - the index page already handles the welcome splash
+  if (isLoading) {
     return (
       <ThemeProvider theme={theme}>
         <Head>
@@ -522,26 +446,41 @@ export default function DashboardPage() {
             <SplashTitle>DJ TAP-IN</SplashTitle>
             <SplashSubtitle>Step Up. Plug In. Run the Decks.</SplashSubtitle>
             
-            <LoadingText $visible={splashPhase === 'loading'}>
-              {isLoading ? 'Connecting...' : 'Loading...'}
+            <LoadingText $visible>
+              Connecting...
             </LoadingText>
+          </SplashContent>
+        </SplashContainer>
+      </ThemeProvider>
+    );
+  }
+
+  // If no user after loading completes, show login prompt
+  if (!user) {
+    return (
+      <ThemeProvider theme={theme}>
+        <Head>
+          <title>DJ Tap-In Queue</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+          <link rel="icon" href="/favicon.ico" />
+        </Head>
+        <SplashContainer>
+          <SplashContent>
+            <Logo>
+              <LogoRing />
+              <LogoInner>
+                <MusicIcon />
+              </LogoInner>
+            </Logo>
             
-            <WelcomeMessage $visible={showWelcome}>
-              {user ? (
-                <>
-                  <WelcomeText>
-                    Welcome back, <UserName>{user.displayName || user.username || 'DJ'}</UserName>
-                  </WelcomeText>
-                  <LoadingText $visible>Preparing your dashboard...</LoadingText>
-                </>
-              ) : (
-                <>
-                  <WelcomeText>Welcome to the Queue</WelcomeText>
-                  <CreateAccountButton>
-                    Create Your Renaissance Account
-                  </CreateAccountButton>
-                </>
-              )}
+            <SplashTitle>DJ TAP-IN</SplashTitle>
+            <SplashSubtitle>Step Up. Plug In. Run the Decks.</SplashSubtitle>
+            
+            <WelcomeMessage $visible>
+              <WelcomeText>Welcome to the Queue</WelcomeText>
+              <CreateAccountButton>
+                Create Your Renaissance Account
+              </CreateAccountButton>
             </WelcomeMessage>
           </SplashContent>
         </SplashContainer>
