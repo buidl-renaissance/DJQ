@@ -96,7 +96,7 @@ const Input = styled.input`
   border-radius: 6px;
   padding: 0.875rem 1rem;
   font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 1rem;
+  font-size: 16px;
   color: ${({ theme }) => theme.colors.contrast};
   transition: border-color 0.2s, box-shadow 0.2s;
   

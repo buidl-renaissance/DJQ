@@ -81,7 +81,7 @@ const SearchInput = styled.input`
   width: 100%;
   padding: 0.75rem 1rem;
   font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.9rem;
+  font-size: 16px;
   background-color: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(57, 255, 20, 0.2);
   border-radius: 8px;
