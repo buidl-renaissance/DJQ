@@ -26,6 +26,8 @@ const Modal = styled.div`
   max-height: 70vh;
   overflow: hidden;
   animation: slideUp 0.3s ease;
+  /* Account for the bottom TabBar (64px) plus safe area */
+  margin-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   
   @keyframes slideUp {
     from { transform: translateY(100%); }
