@@ -51,10 +51,6 @@ const ProfileSection = styled.div`
 const AvatarWrapper = styled.div`
   position: relative;
   cursor: pointer;
-  
-  &:hover .avatar-overlay {
-    opacity: 1;
-  }
 `;
 
 const Avatar = styled.div<{ $hasImage: boolean }>`
@@ -72,35 +68,31 @@ const Avatar = styled.div<{ $hasImage: boolean }>`
   transition: all 0.2s;
 `;
 
-const AvatarOverlay = styled.div`
+const EditButton = styled.div`
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
   bottom: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
+  background: ${({ theme }) => theme.colors.accent};
+  border: 2px solid ${({ theme }) => theme.colors.background};
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
-  opacity: 0;
-  transition: opacity 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  
+  &:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(57, 255, 20, 0.4);
+  }
 `;
 
 const EditIcon = styled.div`
-  width: 24px;
-  height: 24px;
-  color: ${({ theme }) => theme.colors.accent};
-`;
-
-const EditText = styled.span`
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 0.6rem;
-  color: ${({ theme }) => theme.colors.accent};
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  width: 16px;
+  height: 16px;
+  color: ${({ theme }) => theme.colors.background};
 `;
 
 const AvatarImage = styled.img`
@@ -527,12 +519,11 @@ export default function AccountPage() {
               )}
             </Avatar>
             {!uploading && (
-              <AvatarOverlay className="avatar-overlay">
+              <EditButton>
                 <EditIcon>
                   <PencilIcon />
                 </EditIcon>
-                <EditText>Edit</EditText>
-              </AvatarOverlay>
+              </EditButton>
             )}
           </AvatarWrapper>
           
