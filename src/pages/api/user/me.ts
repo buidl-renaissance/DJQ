@@ -6,7 +6,7 @@ import { getOrCreateUserByFid, upsertFarcasterAccount } from '@/db/user';
 type ResponseData = {
   user: {
     id: string;
-    fid: string;
+    fid: string | null;
     username: string | null;
     displayName: string | null;
     pfpUrl: string | null;
