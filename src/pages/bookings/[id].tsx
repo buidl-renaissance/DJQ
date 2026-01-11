@@ -127,10 +127,9 @@ const EventTitle = styled.h1`
 const SlotTime = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;
   font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: ${({ theme }) => theme.colors.secondary};
   text-shadow: 0 0 15px rgba(255, 45, 149, 0.4);
