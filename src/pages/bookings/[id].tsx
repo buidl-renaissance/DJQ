@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import AppLayout from '@/components/layout/AppLayout';
 import B2BInviteModal from '@/components/bookings/B2BInviteModal';
 import { useUser } from '@/contexts/UserContext';
+import { share, getBaseUrl } from '@/lib/share';
 
 const PageContainer = styled.div`
   padding: 1rem;
@@ -52,6 +53,68 @@ const StatusBadge = styled.span<{ $status: string }>`
   border: 1px solid ${({ $status }) => 
     $status === 'confirmed' ? 'rgba(57, 255, 20, 0.4)' : 'rgba(224, 224, 224, 0.2)'};
 `;
+
+const ConfirmationBanner = styled.div`
+  background: linear-gradient(135deg, rgba(57, 255, 20, 0.15), rgba(45, 216, 74, 0.15));
+  border: 1px solid rgba(57, 255, 20, 0.4);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  animation: fadeIn 0.5s ease-out;
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+const ConfirmationIcon = styled.div`
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 0.75rem;
+  background: linear-gradient(135deg, ${({ theme }) => theme.colors.accent}, #2dd84a);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
+  
+  svg {
+    width: 24px;
+    height: 24px;
+    color: ${({ theme }) => theme.colors.background};
+  }
+`;
+
+const ConfirmationTitle = styled.h2`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.accent};
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+`;
+
+const ConfirmationText = styled.p`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.85rem;
+  color: rgba(224, 224, 224, 0.8);
+  margin: 0;
+`;
+
+const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <polyline points="20,6 9,17 4,12" />
+  </svg>
+);
 
 const EventTitle = styled.h1`
   font-family: ${({ theme }) => theme.fonts.heading};
@@ -206,6 +269,50 @@ const CancelButton = styled.button`
   }
 `;
 
+const ShareB2BButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 0.75rem;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.8rem;
+  background-color: transparent;
+  color: ${({ theme }) => theme.colors.accent};
+  border: 1px dashed ${({ theme }) => theme.colors.accent};
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    background-color: rgba(57, 255, 20, 0.05);
+    border-style: solid;
+  }
+`;
+
+const ShareFeedback = styled.span`
+  font-size: 0.7rem;
+  color: ${({ theme }) => theme.colors.accent};
+  margin-left: 0.25rem;
+`;
+
+const ShareIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+
 const LoadingContainer = styled.div`
   display: flex;
   justify-content: center;
@@ -278,7 +385,7 @@ interface User {
 
 export default function BookingDetailPage() {
   const router = useRouter();
-  const { id } = router.query;
+  const { id, confirmed } = router.query;
   const { user } = useUser();
 
   const [booking, setBooking] = useState<BookingData | null>(null);
@@ -288,6 +395,18 @@ export default function BookingDetailPage() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(confirmed === 'true');
+  
+  // Clear the confirmation query param after showing
+  useEffect(() => {
+    if (confirmed === 'true') {
+      // Remove the query param from URL without reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete('confirmed');
+      window.history.replaceState({}, '', url.pathname);
+    }
+  }, [confirmed]);
 
   useEffect(() => {
     if (!id) return;
@@ -321,6 +440,42 @@ export default function BookingDetailPage() {
       console.error('Failed to fetch users:', err);
     }
     setShowInviteModal(true);
+  };
+
+  const handleShareB2BInvite = async () => {
+    if (!booking) return;
+
+    const formatTimeRange = () => {
+      const start = new Date(booking.slotStartTime).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+      const end = new Date(booking.slotEndTime).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+      return `${start} - ${end}`;
+    };
+
+    // Link to the booking with a B2B request context
+    const b2bUrl = `${getBaseUrl()}/bookings/${booking.id}?b2b=invite`;
+    const displayName = user?.displayName || user?.username || 'A DJ';
+    
+    const result = await share({
+      title: `B2B Invite: ${booking.eventTitle}`,
+      text: `${displayName} wants you to go B2B at ${booking.eventTitle} (${formatTimeRange()})! Join them on the decks.`,
+      url: b2bUrl,
+    });
+
+    if (result === 'copied') {
+      setShareFeedback('Link copied!');
+      setTimeout(() => setShareFeedback(null), 2000);
+    } else if (result === 'shared') {
+      setShareFeedback('Shared!');
+      setTimeout(() => setShareFeedback(null), 2000);
+    }
   };
 
   const handleSendInvite = async (targetUserId: string) => {
@@ -426,6 +581,18 @@ export default function BookingDetailPage() {
           Back to My Sets
         </BackButton>
 
+        {showConfirmation && (
+          <ConfirmationBanner>
+            <ConfirmationIcon>
+              <CheckIcon />
+            </ConfirmationIcon>
+            <ConfirmationTitle>You&apos;re Booked!</ConfirmationTitle>
+            <ConfirmationText>
+              Your set has been confirmed. See you on the decks!
+            </ConfirmationText>
+          </ConfirmationBanner>
+        )}
+
         <BookingHeader>
           <StatusBadge $status={booking.status}>{booking.status}</StatusBadge>
           <EventTitle>{booking.eventTitle}</EventTitle>
@@ -459,6 +626,11 @@ export default function BookingDetailPage() {
                   <InviteButton onClick={handleOpenInvite}>
                     Invite Partner
                   </InviteButton>
+                  <ShareB2BButton onClick={handleShareB2BInvite}>
+                    <ShareIcon />
+                    Share B2B Invite Link
+                    {shareFeedback && <ShareFeedback>{shareFeedback}</ShareFeedback>}
+                  </ShareB2BButton>
                 </NoB2B>
               )}
             </B2BCard>

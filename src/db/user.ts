@@ -5,7 +5,9 @@ import { users, farcasterAccounts } from './schema';
 
 export interface User {
   id: string;
-  fid: string;
+  fid?: string | null; // Optional - only for Farcaster users
+  phone?: string | null; // For direct registration/login
+  email?: string | null; // Optional
   username?: string | null;
   displayName?: string | null;
   pfpUrl?: string | null;
@@ -42,6 +44,8 @@ export async function getUserByFid(fid: string): Promise<User | null> {
   return {
     id: row.id,
     fid: row.fid,
+    phone: row.phone,
+    email: row.email,
     username: row.username,
     displayName: row.displayName,
     pfpUrl: row.pfpUrl,
@@ -63,12 +67,88 @@ export async function getUserById(userId: string): Promise<User | null> {
   return {
     id: row.id,
     fid: row.fid,
+    phone: row.phone,
+    email: row.email,
     username: row.username,
     displayName: row.displayName,
     pfpUrl: row.pfpUrl,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
+}
+
+export async function getUserByPhone(phone: string): Promise<User | null> {
+  const results = await db
+    .select()
+    .from(users)
+    .where(eq(users.phone, phone))
+    .limit(1);
+  
+  if (results.length === 0) return null;
+  
+  const row = results[0];
+  return {
+    id: row.id,
+    fid: row.fid,
+    phone: row.phone,
+    email: row.email,
+    username: row.username,
+    displayName: row.displayName,
+    pfpUrl: row.pfpUrl,
+    createdAt: row.createdAt || new Date(),
+    updatedAt: row.updatedAt || new Date(),
+  } as User;
+}
+
+export async function getUserByUsername(username: string): Promise<User | null> {
+  const results = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, username))
+    .limit(1);
+  
+  if (results.length === 0) return null;
+  
+  const row = results[0];
+  return {
+    id: row.id,
+    fid: row.fid,
+    phone: row.phone,
+    email: row.email,
+    username: row.username,
+    displayName: row.displayName,
+    pfpUrl: row.pfpUrl,
+    createdAt: row.createdAt || new Date(),
+    updatedAt: row.updatedAt || new Date(),
+  } as User;
+}
+
+export interface CreateUserWithPhoneData {
+  username: string;
+  displayName: string; // name
+  phone: string;
+  email?: string;
+}
+
+export async function createUserWithPhone(data: CreateUserWithPhoneData): Promise<User> {
+  const id = uuidv4();
+  const now = new Date();
+  
+  const newUser = {
+    id,
+    fid: null,
+    phone: data.phone,
+    email: data.email || null,
+    username: data.username,
+    displayName: data.displayName,
+    pfpUrl: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  await db.insert(users).values(newUser);
+  
+  return newUser as User;
 }
 
 export async function getOrCreateUserByFid(

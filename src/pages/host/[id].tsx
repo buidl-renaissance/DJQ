@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import styled from 'styled-components';
 import AppLayout from '@/components/layout/AppLayout';
 import { useUser } from '@/contexts/UserContext';
+import { share, getBaseUrl } from '@/lib/share';
 
 // Helper to get username from Renaissance/Farcaster context
 const getSDKUsername = async (): Promise<string | null> => {
@@ -304,10 +305,57 @@ const ErrorMessage = styled.div`
   text-align: center;
 `;
 
+const ShareButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background-color: transparent;
+  color: ${({ theme }) => theme.colors.accent};
+  border: 2px solid ${({ theme }) => theme.colors.accent};
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 0.75rem;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    background-color: rgba(57, 255, 20, 0.1);
+    box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+  }
+`;
+
+const ShareFeedback = styled.span`
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.accent};
+  margin-left: 0.5rem;
+`;
+
 const ArrowLeftIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <line x1="19" y1="12" x2="5" y2="12" />
     <polyline points="12,19 5,12 12,5" />
+  </svg>
+);
+
+const ShareIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
   </svg>
 );
 
@@ -347,6 +395,7 @@ export default function ManageEventPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sdkUsername, setSdkUsername] = useState<string | null>(null);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   // Get username from SDK on mount
   useEffect(() => {
@@ -378,6 +427,25 @@ export default function ManageEventPage() {
 
     fetchEvent();
   }, [id, sdkUsername, user?.username]);
+
+  const handleShare = async () => {
+    if (!event) return;
+    
+    const eventUrl = `${getBaseUrl()}/events/${event.id}`;
+    const result = await share({
+      title: event.title,
+      text: `Check out this event: ${event.title}`,
+      url: eventUrl,
+    });
+
+    if (result === 'copied') {
+      setShareFeedback('Link copied!');
+      setTimeout(() => setShareFeedback(null), 2000);
+    } else if (result === 'shared') {
+      setShareFeedback('Shared!');
+      setTimeout(() => setShareFeedback(null), 2000);
+    }
+  };
 
   const handlePublish = async () => {
     setActionLoading(true);
@@ -535,6 +603,13 @@ export default function ManageEventPage() {
 
         <Section>
           <SectionTitle>Actions</SectionTitle>
+          {(event.status === 'published' || event.status === 'active') && (
+            <ShareButton onClick={handleShare}>
+              <ShareIcon />
+              Share Event
+              {shareFeedback && <ShareFeedback>{shareFeedback}</ShareFeedback>}
+            </ShareButton>
+          )}
           {event.status === 'draft' && (
             <ActionButton
               $variant="primary"

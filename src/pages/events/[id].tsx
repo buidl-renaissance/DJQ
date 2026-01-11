@@ -132,16 +132,15 @@ const SlotGridContainer = styled.div`
 
 const FixedBookingBar = styled.div<{ $isVisible: boolean }>`
   position: fixed;
-  bottom: 0;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   background: linear-gradient(to top, rgba(10, 10, 10, 0.98) 0%, rgba(10, 10, 10, 0.95) 100%);
   backdrop-filter: blur(12px);
   border-top: 1px solid rgba(57, 255, 20, 0.3);
   padding: 1rem;
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  z-index: 100;
-  transform: translateY(${({ $isVisible }) => ($isVisible ? '0' : '100%')});
+  z-index: 101;
+  transform: translateY(${({ $isVisible }) => ($isVisible ? '0' : 'calc(100% + 64px)')});
   opacity: ${({ $isVisible }) => ($isVisible ? 1 : 0)};
   transition: transform 0.3s ease, opacity 0.3s ease;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
@@ -580,8 +579,14 @@ export default function EventDetailPage() {
         throw new Error(data.error || 'Failed to book slots');
       }
 
-      // Refresh the page data
-      router.reload();
+      const data = await response.json();
+      
+      // Redirect to booking confirmation page
+      if (data.bookings && data.bookings.length > 0) {
+        router.push(`/bookings/${data.bookings[0].id}?confirmed=true`);
+      } else {
+        router.push('/bookings');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to book slots');
     } finally {

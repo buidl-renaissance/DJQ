@@ -260,6 +260,44 @@ const apiDocs: EndpointSection[] = [
   "user": { ... }
 }`,
       },
+      {
+        method: 'POST',
+        path: '/api/auth/register',
+        description: 'Register a new user with phone number',
+        body: [
+          { name: 'username', type: 'string', required: true, description: 'Unique username' },
+          { name: 'name', type: 'string', required: true, description: 'Display name' },
+          { name: 'phone', type: 'string', required: true, description: 'Phone number (for login)' },
+          { name: 'email', type: 'string', required: false, description: 'Email address' },
+        ],
+        response: `{
+  "success": true,
+  "user": {
+    "id": "uuid",
+    "username": "alice",
+    "displayName": "Alice",
+    "phone": "+15551234567",
+    "email": "alice@example.com"
+  }
+}`,
+      },
+      {
+        method: 'POST',
+        path: '/api/auth/phone-login',
+        description: 'Login with phone number (no verification)',
+        body: [
+          { name: 'phone', type: 'string', required: true, description: 'Phone number' },
+        ],
+        response: `{
+  "success": true,
+  "user": {
+    "id": "uuid",
+    "username": "alice",
+    "displayName": "Alice",
+    "phone": "+15551234567"
+  }
+}`,
+      },
     ],
   },
   {

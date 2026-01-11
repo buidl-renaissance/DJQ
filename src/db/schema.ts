@@ -4,9 +4,11 @@ import { sql } from 'drizzle-orm';
 // Users table
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
-  fid: text('fid').notNull().unique(),
+  fid: text('fid').unique(), // Optional - only for Farcaster users
+  phone: text('phone').unique(), // For direct registration/login
+  email: text('email'), // Optional
   username: text('username'),
-  displayName: text('displayName'),
+  displayName: text('displayName'), // Used as "name"
   pfpUrl: text('pfpUrl'),
   createdAt: integer('createdAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
