@@ -125,6 +125,10 @@ const EventTitle = styled.h1`
 `;
 
 const SlotTime = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
   font-family: ${({ theme }) => theme.fonts.heading};
   font-size: 1.75rem;
   font-weight: 700;
@@ -140,18 +144,15 @@ const DateInfo = styled.div`
 `;
 
 const SlotCountBadge = styled.span`
-  display: inline-block;
   font-family: ${({ theme }) => theme.fonts.body};
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
-  margin-left: 0.75rem;
   background-color: rgba(57, 255, 20, 0.15);
   color: ${({ theme }) => theme.colors.accent};
   border: 1px solid rgba(57, 255, 20, 0.3);
-  vertical-align: middle;
 `;
 
 const Section = styled.section`
@@ -624,7 +625,7 @@ export default function BookingDetailPage() {
           <StatusBadge $status={booking.status}>{booking.status}</StatusBadge>
           <EventTitle>{booking.eventTitle}</EventTitle>
           <SlotTime>
-            {formatTime(booking.slotStartTime)} - {formatTime(booking.slotEndTime)}
+            <span>{formatTime(booking.slotStartTime)} - {formatTime(booking.slotEndTime)}</span>
             {booking.slotCount && booking.slotCount > 1 && (
               <SlotCountBadge>{booking.slotCount} slots</SlotCountBadge>
             )}
