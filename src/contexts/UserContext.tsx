@@ -5,8 +5,10 @@ interface UserContextType {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  needsPhone: boolean;
   refreshUser: () => Promise<void>;
   updateUser: (updatedUser: Partial<User>) => void;
+  setNeedsPhone: (value: boolean) => void;
 }
 
 interface SDKUser {
@@ -17,6 +19,10 @@ interface SDKUser {
   pfpUrl?: string;
   pfp_url?: string; // Farcaster SDK might use snake_case
   renaissanceUserId?: number | string; // Renaissance-only accounts
+  accountAddress?: string; // Wallet address from Renaissance auth
+  account_address?: string; // Wallet address (snake_case)
+  custodyAddress?: string; // Alternative wallet address field
+  custody_address?: string; // Alternative (snake_case)
 }
 
 // Helper to check if a user is valid (has Farcaster fid OR Renaissance account OR username)
@@ -116,6 +122,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(() => getStoredUser());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [needsPhone, setNeedsPhone] = useState<boolean>(false);
 
   // Sync user state to localStorage whenever it changes
   useEffect(() => {
@@ -148,12 +155,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🔐 Authenticating with SDK user:', sdkUser);
       
       // Normalize user data - use pfpUrl or pfp_url, displayName or display_name
+      // Get account address from various possible field names
+      const accountAddress = sdkUser.accountAddress || sdkUser.account_address || 
+                            sdkUser.custodyAddress || sdkUser.custody_address;
+      
       const normalizedData = {
         fid: String(sdkUser.fid),
         username: sdkUser.username,
         displayName: sdkUser.displayName || sdkUser.display_name,
         pfpUrl: sdkUser.pfpUrl || sdkUser.pfp_url,
         renaissanceUserId: sdkUser.renaissanceUserId ? String(sdkUser.renaissanceUserId) : undefined,
+        accountAddress: accountAddress,
       };
       
       // Send user data to backend to create/verify user and get session
@@ -174,6 +186,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('✅ User authenticated successfully:', authData.user);
           setUser(authData.user);
           setError(null);
+          
+          // Check if user needs to add phone number
+          if (authData.needsPhone) {
+            console.log('📱 User needs to add phone number');
+            setNeedsPhone(true);
+          }
+          
           return true;
         } else {
           console.warn('⚠️ Auth response OK but no user in response');
@@ -685,7 +704,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <UserContext.Provider value={{ user, isLoading, error, refreshUser, updateUser }}>
+    <UserContext.Provider value={{ user, isLoading, error, needsPhone, refreshUser, updateUser, setNeedsPhone }}>
       {children}
     </UserContext.Provider>
   );

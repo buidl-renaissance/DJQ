@@ -316,20 +316,16 @@ export default function AccountPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Initialize form fields when user loads
-  // Use app-specific fields (displayName, profilePicture) with fallback to synced data (name, pfpUrl)
   useEffect(() => {
     if (user) {
-      setDisplayName(user.displayName || user.name || '');
-      // Use profilePicture if set, otherwise fall back to synced pfpUrl
-      const effectivePfp = user.profilePicture || user.pfpUrl || null;
-      setCurrentProfilePicture(effectivePfp);
-      setPreviewUrl(effectivePfp);
+      setDisplayName(user.displayName || '');
+      setCurrentProfilePicture(user.pfpUrl || null);
+      setPreviewUrl(user.pfpUrl || null);
     }
   }, [user]);
 
   const hasNameChanges = () => {
-    const currentName = user?.displayName || user?.name || '';
-    return displayName.trim() !== currentName;
+    return displayName.trim() !== (user?.displayName || '');
   };
 
   const handleFileSelect = async (file: File) => {
@@ -371,11 +367,11 @@ export default function AccountPage() {
       }
 
       // Update with server URL
-      if (data.user?.profilePicture) {
-        setCurrentProfilePicture(data.user.profilePicture);
-        setPreviewUrl(data.user.profilePicture);
+      if (data.user?.pfpUrl) {
+        setCurrentProfilePicture(data.user.pfpUrl);
+        setPreviewUrl(data.user.pfpUrl);
         // Update the user context so other parts of the app see the change
-        updateUser({ profilePicture: data.user.profilePicture });
+        updateUser({ pfpUrl: data.user.pfpUrl });
       }
       
       setMessage({ type: 'success', text: 'Profile picture updated!' });
@@ -416,7 +412,7 @@ export default function AccountPage() {
       const res = await fetch('/api/user/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profilePicture: null }),
+        body: JSON.stringify({ pfpUrl: null }),
       });
 
       const data = await res.json();
@@ -426,12 +422,10 @@ export default function AccountPage() {
         return;
       }
 
-      // Fall back to synced pfpUrl if available
-      const fallbackUrl = user?.pfpUrl || null;
-      setCurrentProfilePicture(fallbackUrl);
-      setPreviewUrl(fallbackUrl);
+      setCurrentProfilePicture(null);
+      setPreviewUrl(null);
       // Update the user context so other parts of the app see the change
-      updateUser({ profilePicture: null });
+      updateUser({ pfpUrl: null });
       setMessage({ type: 'success', text: 'Profile picture removed!' });
     } catch (err) {
       console.error('Error removing picture:', err);

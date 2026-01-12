@@ -1,9 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import styled, { ThemeProvider, keyframes } from 'styled-components';
 import { theme } from '@/styles/theme';
+
+// Format phone number as user types: (XXX) XXX-XXXX or +1 (XXX) XXX-XXXX
+const formatPhoneNumber = (value: string): string => {
+  // Strip all non-digit characters except leading +
+  const hasPlus = value.startsWith('+');
+  const digits = value.replace(/\D/g, '');
+  
+  if (!digits) return hasPlus ? '+' : '';
+  
+  // Handle +1 or 1 prefix (US country code)
+  let formatted = '';
+  let digitIndex = 0;
+  
+  if (hasPlus || digits.startsWith('1')) {
+    // International format: +1 (XXX) XXX-XXXX
+    if (digits.startsWith('1')) {
+      formatted = '+1 ';
+      digitIndex = 1;
+    } else {
+      formatted = '+';
+    }
+  }
+  
+  const remaining = digits.slice(digitIndex);
+  
+  if (remaining.length === 0) return formatted.trim();
+  
+  // Format remaining digits as (XXX) XXX-XXXX
+  if (remaining.length <= 3) {
+    formatted += `(${remaining}`;
+  } else if (remaining.length <= 6) {
+    formatted += `(${remaining.slice(0, 3)}) ${remaining.slice(3)}`;
+  } else {
+    formatted += `(${remaining.slice(0, 3)}) ${remaining.slice(3, 6)}-${remaining.slice(6, 10)}`;
+  }
+  
+  return formatted;
+};
 
 const glowPulse = keyframes`
   0%, 100% {
@@ -90,14 +128,14 @@ const Label = styled.label`
   letter-spacing: 1px;
 `;
 
-const Input = styled.input`
-  background: ${({ theme }) => theme.colors.background};
-  border: 1px solid ${({ theme }) => theme.colors.darkGray};
+const Input = styled.input<{ $readOnly?: boolean }>`
+  background: ${({ theme, $readOnly }) => $readOnly ? 'rgba(57, 255, 20, 0.05)' : theme.colors.background};
+  border: 1px solid ${({ theme, $readOnly }) => $readOnly ? 'rgba(57, 255, 20, 0.3)' : theme.colors.darkGray};
   border-radius: 6px;
   padding: 0.875rem 1rem;
   font-family: ${({ theme }) => theme.fonts.body};
   font-size: 16px;
-  color: ${({ theme }) => theme.colors.contrast};
+  color: ${({ theme, $readOnly }) => $readOnly ? theme.colors.accent : theme.colors.contrast};
   transition: border-color 0.2s, box-shadow 0.2s;
   
   &:focus {
@@ -110,14 +148,10 @@ const Input = styled.input`
     color: ${({ theme }) => theme.colors.contrast};
     opacity: 0.4;
   }
-`;
-
-const OptionalTag = styled.span`
-  font-size: 0.65rem;
-  color: ${({ theme }) => theme.colors.contrast};
-  opacity: 0.5;
-  margin-left: 0.5rem;
-  text-transform: lowercase;
+  
+  &:read-only {
+    cursor: default;
+  }
 `;
 
 const SubmitButton = styled.button<{ $loading?: boolean }>`
@@ -156,9 +190,7 @@ const ErrorMessage = styled.div`
 
 const LinksContainer = styled.div`
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
+  justify-content: center;
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid ${({ theme }) => theme.colors.darkGray};
@@ -177,24 +209,31 @@ const StyledLink = styled(Link)`
   }
 `;
 
-const OrDivider = styled.span`
-  font-size: 0.75rem;
-  color: ${({ theme }) => theme.colors.contrast};
-  opacity: 0.5;
-`;
-
 export default function RegisterPage() {
   const router = useRouter();
-  const { redirect } = router.query;
+  const { redirect, phone: phoneParam } = router.query;
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Get the redirect URL or default to dashboard
   const redirectUrl = typeof redirect === 'string' ? redirect : '/dashboard';
+
+  // Pre-fill phone from query parameter and format it
+  useEffect(() => {
+    if (typeof phoneParam === 'string') {
+      setPhone(formatPhoneNumber(phoneParam));
+    }
+  }, [phoneParam]);
+
+  // If no phone in query, redirect to login page
+  useEffect(() => {
+    if (router.isReady && !phoneParam) {
+      router.replace(redirect ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : '/login');
+    }
+  }, [router.isReady, phoneParam, redirect, redirectUrl, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +244,8 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, name, phone, email: email || undefined }),
+        body: JSON.stringify({ username, name, phone }),
+        credentials: 'include',
       });
 
       const data = await res.json();
@@ -216,8 +256,13 @@ export default function RegisterPage() {
         return;
       }
 
-      // Success - redirect to original page or dashboard
-      router.push(redirectUrl);
+      // Store user in localStorage so UserContext picks it up on redirect
+      if (data.user) {
+        localStorage.setItem('djq_user', JSON.stringify(data.user));
+      }
+
+      // Success - use hard redirect to ensure fresh UserContext state
+      window.location.href = redirectUrl;
     } catch (err) {
       console.error('Registration error:', err);
       setError('Something went wrong. Please try again.');
@@ -225,19 +270,42 @@ export default function RegisterPage() {
     }
   };
 
+  // Don't render form until we have the phone parameter
+  if (!phoneParam) {
+    return (
+      <ThemeProvider theme={theme}>
+        <Container>
+          <FormCard>
+            <Title>Redirecting...</Title>
+          </FormCard>
+        </Container>
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <Head>
-        <title>Create Account | DJQ</title>
-        <meta name="description" content="Create your DJQ account" />
+        <title>Complete Sign Up | DJQ</title>
+        <meta name="description" content="Complete your DJQ account" />
       </Head>
       <Container>
         <FormCard>
-          <Title>Create Account</Title>
-          <Subtitle>Join DJQ to book and manage DJ slots</Subtitle>
+          <Title>Almost There!</Title>
+          <Subtitle>Just a few more details to complete your account</Subtitle>
           
           <Form onSubmit={handleSubmit}>
             {error && <ErrorMessage>{error}</ErrorMessage>}
+            
+            <FormGroup>
+              <Label>Phone Number</Label>
+              <Input
+                type="tel"
+                value={phone}
+                readOnly
+                $readOnly
+              />
+            </FormGroup>
             
             <FormGroup>
               <Label>Username</Label>
@@ -248,44 +316,19 @@ export default function RegisterPage() {
                 placeholder="your_username"
                 required
                 autoComplete="username"
+                autoFocus
               />
             </FormGroup>
             
             <FormGroup>
-              <Label>Name</Label>
+              <Label>Display Name</Label>
               <Input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your Display Name"
+                placeholder="Your Name"
                 required
                 autoComplete="name"
-              />
-            </FormGroup>
-            
-            <FormGroup>
-              <Label>Phone Number</Label>
-              <Input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 555 123 4567"
-                required
-                autoComplete="tel"
-              />
-            </FormGroup>
-            
-            <FormGroup>
-              <Label>
-                Email
-                <OptionalTag>(optional)</OptionalTag>
-              </Label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                autoComplete="email"
               />
             </FormGroup>
             
@@ -296,11 +339,7 @@ export default function RegisterPage() {
           
           <LinksContainer>
             <StyledLink href={redirect ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : '/login'}>
-              Already have an account? Log in
-            </StyledLink>
-            <OrDivider>or</OrDivider>
-            <StyledLink href={redirect ? `/?redirect=${encodeURIComponent(redirectUrl)}` : '/'}>
-              Login with Farcaster
+              Use a different phone number
             </StyledLink>
           </LinksContainer>
         </FormCard>

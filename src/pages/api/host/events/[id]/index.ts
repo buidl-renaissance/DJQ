@@ -98,7 +98,10 @@ export default async function handler(
             slotIndex: slot.slotIndex,
             status: slot.status,
             booking: booking ? {
+              id: booking.booking.id,
+              djId: booking.booking.djId,
               djName: booking.dj?.displayName || booking.dj?.username || 'Unknown DJ',
+              djUsername: booking.dj?.username,
               b2bPartner,
             } : undefined,
           };

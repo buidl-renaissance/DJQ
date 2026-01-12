@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import Link from 'next/link';
 import styled, { ThemeProvider, keyframes } from 'styled-components';
 import { theme } from '@/styles/theme';
 
@@ -146,69 +145,43 @@ const ErrorMessage = styled.div`
   color: ${({ theme }) => theme.colors.secondary};
 `;
 
-const Divider = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 1.5rem 0;
+// Format phone number as user types: (XXX) XXX-XXXX or +1 (XXX) XXX-XXXX
+const formatPhoneNumber = (value: string): string => {
+  // Strip all non-digit characters except leading +
+  const hasPlus = value.startsWith('+');
+  const digits = value.replace(/\D/g, '');
   
-  &::before,
-  &::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: ${({ theme }) => theme.colors.darkGray};
-  }
-`;
-
-const DividerText = styled.span`
-  font-size: 0.75rem;
-  color: ${({ theme }) => theme.colors.contrast};
-  opacity: 0.5;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-`;
-
-const FarcasterButton = styled.button`
-  background: transparent;
-  border: 1px solid ${({ theme }) => theme.colors.secondary};
-  border-radius: 6px;
-  padding: 1rem;
-  font-family: ${({ theme }) => theme.fonts.heading};
-  font-size: 0.8rem;
-  color: ${({ theme }) => theme.colors.secondary};
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  cursor: pointer;
-  transition: all 0.2s;
-  width: 100%;
+  if (!digits) return hasPlus ? '+' : '';
   
-  &:hover {
-    background: rgba(255, 45, 149, 0.1);
-    transform: translateY(-2px);
-  }
-`;
-
-const LinksContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid ${({ theme }) => theme.colors.darkGray};
-`;
-
-const StyledLink = styled(Link)`
-  font-family: ${({ theme }) => theme.fonts.body};
-  font-size: 0.85rem;
-  color: ${({ theme }) => theme.colors.accent};
-  text-decoration: none;
-  opacity: 0.8;
-  transition: opacity 0.2s;
+  // Handle +1 or 1 prefix (US country code)
+  let formatted = '';
+  let digitIndex = 0;
   
-  &:hover {
-    opacity: 1;
+  if (hasPlus || digits.startsWith('1')) {
+    // International format: +1 (XXX) XXX-XXXX
+    if (digits.startsWith('1')) {
+      formatted = '+1 ';
+      digitIndex = 1;
+    } else {
+      formatted = '+';
+    }
   }
-`;
+  
+  const remaining = digits.slice(digitIndex);
+  
+  if (remaining.length === 0) return formatted.trim();
+  
+  // Format remaining digits as (XXX) XXX-XXXX
+  if (remaining.length <= 3) {
+    formatted += `(${remaining}`;
+  } else if (remaining.length <= 6) {
+    formatted += `(${remaining.slice(0, 3)}) ${remaining.slice(3)}`;
+  } else {
+    formatted += `(${remaining.slice(0, 3)}) ${remaining.slice(3, 6)}-${remaining.slice(6, 10)}`;
+  }
+  
+  return formatted;
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -216,6 +189,11 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setPhone(formatted);
+  };
 
   // Get the redirect URL or default to dashboard
   const redirectUrl = typeof redirect === 'string' ? redirect : '/dashboard';
@@ -225,14 +203,25 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    // Normalize phone number
+    const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
+
     try {
       const res = await fetch('/api/auth/phone-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: normalizedPhone }),
+        credentials: 'include',
       });
 
       const data = await res.json();
+
+      if (res.status === 404) {
+        // Phone not found - redirect to register with phone pre-filled
+        const registerUrl = `/register?phone=${encodeURIComponent(normalizedPhone)}&redirect=${encodeURIComponent(redirectUrl)}`;
+        router.push(registerUrl);
+        return;
+      }
 
       if (!res.ok) {
         setError(data.error || 'Login failed');
@@ -240,8 +229,13 @@ export default function LoginPage() {
         return;
       }
 
-      // Success - redirect to original page or dashboard
-      router.push(redirectUrl);
+      // Store user in localStorage so UserContext picks it up on redirect
+      if (data.user) {
+        localStorage.setItem('djq_user', JSON.stringify(data.user));
+      }
+
+      // Success - use hard redirect to ensure fresh UserContext state
+      window.location.href = redirectUrl;
     } catch (err) {
       console.error('Login error:', err);
       setError('Something went wrong. Please try again.');
@@ -249,21 +243,15 @@ export default function LoginPage() {
     }
   };
 
-  const handleFarcasterLogin = () => {
-    // Redirect to home page which has Farcaster auth, with redirect param
-    const homeUrl = redirect ? `/?redirect=${encodeURIComponent(redirectUrl)}` : '/';
-    router.push(homeUrl);
-  };
-
   return (
     <ThemeProvider theme={theme}>
       <Head>
-        <title>Login | DJQ</title>
-        <meta name="description" content="Login to your DJQ account" />
+        <title>Sign In | DJQ</title>
+        <meta name="description" content="Sign in to your DJQ account" />
       </Head>
       <Container>
         <FormCard>
-          <Title>Welcome Back</Title>
+          <Title>Sign In</Title>
           <Subtitle>Enter your phone number to continue</Subtitle>
           
           <Form onSubmit={handleSubmit}>
@@ -274,8 +262,8 @@ export default function LoginPage() {
               <Input
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 555 123 4567"
+                onChange={handlePhoneChange}
+                placeholder="+1 (555) 123-4567"
                 required
                 autoComplete="tel"
                 autoFocus
@@ -283,23 +271,9 @@ export default function LoginPage() {
             </FormGroup>
             
             <SubmitButton type="submit" disabled={loading} $loading={loading}>
-              {loading ? 'Logging in...' : 'Continue'}
+              {loading ? 'Checking...' : 'Continue'}
             </SubmitButton>
           </Form>
-          
-          <Divider>
-            <DividerText>or</DividerText>
-          </Divider>
-          
-          <FarcasterButton type="button" onClick={handleFarcasterLogin}>
-            Login with Farcaster
-          </FarcasterButton>
-          
-          <LinksContainer>
-            <StyledLink href={redirect ? `/register?redirect=${encodeURIComponent(redirectUrl)}` : '/register'}>
-              Don&apos;t have an account? Sign up
-            </StyledLink>
-          </LinksContainer>
         </FormCard>
       </Container>
     </ThemeProvider>

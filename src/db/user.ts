@@ -13,6 +13,7 @@ export interface User {
   pfpUrl?: string | null; // Synced from Farcaster/Renaissance
   displayName?: string | null; // App-specific name (editable)
   profilePicture?: string | null; // App-specific profile picture (editable)
+  accountAddress?: string | null; // Wallet address from Renaissance auth
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +32,7 @@ export interface FarcasterUserData {
   username?: string;
   name?: string; // Will be stored in 'name' field (synced)
   pfpUrl?: string; // Will be stored in 'pfpUrl' field (synced)
+  accountAddress?: string; // Wallet address from Renaissance auth
 }
 
 export async function getUserByFid(fid: string): Promise<User | null> {
@@ -53,6 +55,7 @@ export async function getUserByFid(fid: string): Promise<User | null> {
     pfpUrl: row.pfpUrl,
     displayName: row.displayName,
     profilePicture: row.profilePicture,
+    accountAddress: row.accountAddress,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -78,6 +81,7 @@ export async function getUserById(userId: string): Promise<User | null> {
     pfpUrl: row.pfpUrl,
     displayName: row.displayName,
     profilePicture: row.profilePicture,
+    accountAddress: row.accountAddress,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -103,6 +107,7 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
     pfpUrl: row.pfpUrl,
     displayName: row.displayName,
     profilePicture: row.profilePicture,
+    accountAddress: row.accountAddress,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -128,6 +133,7 @@ export async function getUserByUsername(username: string): Promise<User | null> 
     pfpUrl: row.pfpUrl,
     displayName: row.displayName,
     profilePicture: row.profilePicture,
+    accountAddress: row.accountAddress,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -155,7 +161,8 @@ export async function updateUserDisplayName(userId: string, displayName: string)
 
 export interface UpdateUserProfileData {
   displayName?: string;
-  profilePicture?: string | null;
+  pfpUrl?: string | null;
+  phone?: string;
 }
 
 export async function updateUserProfile(userId: string, data: UpdateUserProfileData): Promise<User | null> {
@@ -163,13 +170,16 @@ export async function updateUserProfile(userId: string, data: UpdateUserProfileD
   if (!existing) return null;
 
   const now = new Date();
-  const updateData: { displayName?: string; profilePicture?: string | null; updatedAt: Date } = { updatedAt: now };
+  const updateData: { displayName?: string; pfpUrl?: string | null; phone?: string; updatedAt: Date } = { updatedAt: now };
 
   if (data.displayName !== undefined) {
     updateData.displayName = data.displayName;
   }
-  if (data.profilePicture !== undefined) {
-    updateData.profilePicture = data.profilePicture;
+  if (data.pfpUrl !== undefined) {
+    updateData.pfpUrl = data.pfpUrl;
+  }
+  if (data.phone !== undefined) {
+    updateData.phone = data.phone;
   }
 
   await db
@@ -214,7 +224,7 @@ export async function createUserWithPhone(data: CreateUserWithPhoneData): Promis
 export async function getOrCreateUserByFid(
   fid: string,
   userData?: FarcasterUserData
-): Promise<User> {
+): Promise<{ user: User; isNewUser: boolean }> {
   const existing = await getUserByFid(fid);
   
   if (existing) {
@@ -225,14 +235,16 @@ export async function getOrCreateUserByFid(
         username?: string | null;
         name?: string | null;
         pfpUrl?: string | null;
+        accountAddress?: string | null;
         updatedAt: Date;
       } = { updatedAt: now };
       
-      // Sync username, name, and pfpUrl from Farcaster/Renaissance
+      // Sync username, name, pfpUrl, and accountAddress from Farcaster/Renaissance
       // displayName and profilePicture are app-specific and won't be affected
       if (userData.username !== undefined) updateData.username = userData.username;
       if (userData.name !== undefined) updateData.name = userData.name;
       if (userData.pfpUrl !== undefined) updateData.pfpUrl = userData.pfpUrl;
+      if (userData.accountAddress !== undefined) updateData.accountAddress = userData.accountAddress;
       
       await db
         .update(users)
@@ -240,12 +252,15 @@ export async function getOrCreateUserByFid(
         .where(eq(users.id, existing.id));
       
       return {
-        ...existing,
-        ...updateData,
-      } as User;
+        user: {
+          ...existing,
+          ...updateData,
+        } as User,
+        isNewUser: false,
+      };
     }
     
-    return existing;
+    return { user: existing, isNewUser: false };
   }
   
   // Create new user - initialize app-specific fields with Farcaster data
@@ -259,13 +274,14 @@ export async function getOrCreateUserByFid(
     pfpUrl: userData?.pfpUrl || null, // Synced from Farcaster
     displayName: userData?.name || null, // Initialize with Farcaster name
     profilePicture: userData?.pfpUrl || null, // Initialize with Farcaster pfp
+    accountAddress: userData?.accountAddress || null, // From Renaissance auth
     createdAt: now,
     updatedAt: now,
   };
   
   await db.insert(users).values(newUser);
   
-  return newUser as User;
+  return { user: newUser as User, isNewUser: true };
 }
 
 export async function upsertFarcasterAccount(

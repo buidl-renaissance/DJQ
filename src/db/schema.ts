@@ -12,6 +12,7 @@ export const users = sqliteTable('users', {
   pfpUrl: text('pfpUrl'), // Synced from Farcaster/Renaissance
   displayName: text('displayName'), // App-specific name (editable)
   profilePicture: text('profilePicture'), // App-specific profile picture (editable)
+  accountAddress: text('accountAddress'), // Wallet address from Renaissance auth
   createdAt: integer('createdAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
 });
@@ -60,6 +61,7 @@ export const events = sqliteTable('events', {
   hostId: text('hostId').notNull().references(() => users.id),
   title: text('title').notNull(),
   description: text('description'),
+  imageUrl: text('imageUrl'), // Event cover image
   bookingType: text('bookingType').notNull().default('open_decks'),
   slotDurationMinutes: integer('slotDurationMinutes').notNull().default(20),
   allowConsecutiveSlots: integer('allowConsecutiveSlots', { mode: 'boolean' }).notNull().default(false),

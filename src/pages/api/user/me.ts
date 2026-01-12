@@ -50,7 +50,7 @@ export default async function handler(
               user = await getOrCreateUserByFid(fid, {
                 fid,
                 username: verifiedData.username,
-                name: verifiedData.display_name,
+                displayName: verifiedData.display_name,
                 pfpUrl: verifiedData.pfp_url,
               });
               

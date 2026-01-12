@@ -22,6 +22,27 @@
       "when": 1768179981754,
       "tag": "0002_red_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1736636400000,
+      "tag": "0003_add_event_image",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1768189561119,
+      "tag": "0004_clammy_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1768190491070,
+      "tag": "0005_chemical_the_executioner",
+      "breakpoints": true
     }
   ]
 }

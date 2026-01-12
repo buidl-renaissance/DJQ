@@ -14,10 +14,8 @@ type ResponseData = {
     id: string;
     fid: string | null;
     username: string | null;
-    name: string | null;
-    pfpUrl: string | null;
     displayName: string | null;
-    profilePicture: string | null;
+    pfpUrl: string | null;
   };
   error?: string;
 };
@@ -216,7 +214,7 @@ export default async function handler(
 
     // Update user's profile with new avatar URL
     const updatedUser = await updateUserProfile(userId, {
-      profilePicture: uploadResult.url,
+      pfpUrl: uploadResult.url,
     });
 
     if (!updatedUser) {
@@ -230,10 +228,8 @@ export default async function handler(
         id: updatedUser.id,
         fid: updatedUser.fid ?? null,
         username: updatedUser.username ?? null,
-        name: updatedUser.name ?? null,
-        pfpUrl: updatedUser.pfpUrl ?? null,
         displayName: updatedUser.displayName ?? null,
-        profilePicture: updatedUser.profilePicture ?? null,
+        pfpUrl: updatedUser.pfpUrl ?? null,
       },
     });
   } catch (error) {

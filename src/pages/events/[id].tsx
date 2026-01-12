@@ -358,7 +358,8 @@ export default function EventDetailPage() {
           ...slot,
           startTime: new Date(slot.startTime),
           endTime: new Date(slot.endTime),
-          status: slot.booking?.djId === user?.id ? 'yours' : slot.status,
+          // Only mark as 'yours' if both user and booking exist and IDs match
+          status: slot.booking && user && slot.booking.djId === user.id ? 'yours' : slot.status,
           djName: slot.booking?.djName,
           b2bPartner: slot.booking?.b2bPartner,
         }));

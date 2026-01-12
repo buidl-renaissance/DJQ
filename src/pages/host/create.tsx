@@ -119,11 +119,38 @@ export default function CreateEventPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sdkUsername, setSdkUsername] = useState<string | null>(null);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
 
   // Get username from SDK context on mount
   useEffect(() => {
     getSDKUsername().then(setSdkUsername);
   }, []);
+
+  // Handle image selection (store locally for new events)
+  const handleImageUpload = async (file: File): Promise<string | null> => {
+    // For new events, just store the file and return a preview URL
+    setPendingImageFile(file);
+    return URL.createObjectURL(file);
+  };
+
+  // Upload image after event creation
+  const uploadEventImage = async (eventId: string, file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('eventId', eventId);
+
+    const response = await fetch('/api/events/upload-image', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload image');
+    }
+
+    const result = await response.json();
+    return result.imageUrl;
+  };
 
   const handleSubmit = async (data: EventFormData, publish: boolean) => {
     setLoading(true);
@@ -165,6 +192,17 @@ export default function CreateEventPage() {
       }
 
       const result = await response.json();
+      
+      // Upload image if one was selected
+      if (pendingImageFile) {
+        try {
+          await uploadEventImage(result.event.id, pendingImageFile);
+        } catch (err) {
+          console.warn('Failed to upload event image:', err);
+          // Continue anyway - the event was created successfully
+        }
+      }
+      
       router.push(`/host/${result.event.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create event');
@@ -214,7 +252,7 @@ export default function CreateEventPage() {
 
         <PageTitle>Create Event</PageTitle>
 
-        <EventForm onSubmit={handleSubmit} loading={loading} />
+        <EventForm onSubmit={handleSubmit} onImageUpload={handleImageUpload} loading={loading} />
       </PageContainer>
     </AppLayout>
   );

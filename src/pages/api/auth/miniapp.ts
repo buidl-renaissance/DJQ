@@ -15,19 +15,20 @@ export default async function handler(
 
   try {
     // displayName from Farcaster SDK will be stored as 'name' (synced field)
-    const { fid, username, displayName, pfpUrl, renaissanceUserId } = req.body as {
+    const { fid, username, displayName, pfpUrl, renaissanceUserId, accountAddress } = req.body as {
       fid?: string;
       username?: string;
       displayName?: string; // From Farcaster, stored as 'name'
       pfpUrl?: string;
       renaissanceUserId?: string;
+      accountAddress?: string; // Wallet address from Renaissance auth
     };
 
     if (!fid) {
       return res.status(400).json({ error: 'fid is required' });
     }
 
-    console.log('🔐 [MINIAPP AUTH] Authenticating mini app user:', { fid, username, displayName, renaissanceUserId });
+    console.log('🔐 [MINIAPP AUTH] Authenticating mini app user:', { fid, username, displayName, renaissanceUserId, accountAddress });
     console.log('🔐 [MINIAPP AUTH] Request headers:', {
       origin: req.headers.origin,
       referer: req.headers.referer,
@@ -36,11 +37,12 @@ export default async function handler(
 
     // Get or create user in database
     // Farcaster's displayName is stored as 'name' (synced from parent app)
-    const user = await getOrCreateUserByFid(fid, {
+    const { user, isNewUser } = await getOrCreateUserByFid(fid, {
       fid,
       username: username || undefined,
       name: displayName || undefined, // Store Farcaster displayName as 'name'
       pfpUrl: pfpUrl || undefined,
+      accountAddress: accountAddress || undefined, // Store wallet address from Renaissance
     });
 
     // Link/update Farcaster account
@@ -58,18 +60,26 @@ export default async function handler(
       userId: user.id,
       fid: user.fid,
       username: user.username,
+      isNewUser,
     });
+
+    // Check if user needs to add phone number (new users or existing users without phone)
+    const needsPhone = !user.phone;
 
     return res.status(200).json({
       success: true,
+      isNewUser,
+      needsPhone,
       user: {
         id: user.id,
         fid: user.fid,
         username: user.username,
+        phone: user.phone,
         name: user.name, // Synced from Farcaster
         pfpUrl: user.pfpUrl, // Synced from Farcaster
         displayName: user.displayName, // App-specific (editable)
         profilePicture: user.profilePicture, // App-specific (editable)
+        accountAddress: user.accountAddress, // From Renaissance auth
       },
     });
   } catch (error) {

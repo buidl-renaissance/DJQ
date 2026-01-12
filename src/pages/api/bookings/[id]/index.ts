@@ -5,6 +5,21 @@ import { cancelBooking, getBookingById } from '@/db/bookings';
 import { eq, and, inArray } from 'drizzle-orm';
 
 /**
+ * Check if a user is the host of the event that contains the given booking
+ */
+async function isUserHostOfBooking(bookingId: string, userId: string): Promise<boolean> {
+  const result = await db
+    .select({ hostId: events.hostId })
+    .from(slotBookings)
+    .innerJoin(timeSlots, eq(slotBookings.slotId, timeSlots.id))
+    .innerJoin(events, eq(timeSlots.eventId, events.id))
+    .where(eq(slotBookings.id, bookingId))
+    .limit(1);
+
+  return result.length > 0 && result[0].hostId === userId;
+}
+
+/**
  * Find all bookings that are part of the same consecutive set
  * (same DJ, same event, consecutive slots, same status)
  */
@@ -260,9 +275,14 @@ export default async function handler(
         return res.status(404).json({ error: 'Booking not found' });
       }
 
-      // Verify ownership if username provided
-      if (userId && booking.djId !== userId) {
-        return res.status(403).json({ error: 'Not authorized' });
+      // Check authorization: user must be either the booking owner OR the event host
+      if (userId) {
+        const isOwner = booking.djId === userId;
+        const isHost = await isUserHostOfBooking(id, userId);
+        
+        if (!isOwner && !isHost) {
+          return res.status(403).json({ error: 'Not authorized' });
+        }
       }
 
       // Find all related bookings and cancel them all

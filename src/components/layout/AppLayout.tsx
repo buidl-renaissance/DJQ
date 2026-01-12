@@ -1,7 +1,9 @@
 import styled, { createGlobalStyle, ThemeProvider } from 'styled-components';
 import Head from 'next/head';
 import TabBar from './TabBar';
+import PhonePromptModal from '@/components/PhonePromptModal';
 import { theme } from '@/styles/theme';
+import { useUser } from '@/contexts/UserContext';
 
 const GlobalStyle = createGlobalStyle`
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap');
@@ -73,6 +75,8 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children, title = 'DJ Tap-In Queue' }: AppLayoutProps) {
+  const { needsPhone, user } = useUser();
+
   return (
     <ThemeProvider theme={theme}>
       <GlobalStyle />
@@ -84,6 +88,7 @@ export default function AppLayout({ children, title = 'DJ Tap-In Queue' }: AppLa
       <Container>
         <Content>{children}</Content>
         <TabBar />
+        {user && needsPhone && <PhonePromptModal />}
       </Container>
     </ThemeProvider>
   );

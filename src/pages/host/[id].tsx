@@ -217,6 +217,29 @@ const OpenSlot = styled.span`
   color: ${({ theme }) => theme.colors.accent};
 `;
 
+const CancelSlotButton = styled.button`
+  background: transparent;
+  border: 1px solid rgba(255, 45, 149, 0.3);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.65rem;
+  color: ${({ theme }) => theme.colors.secondary};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.75rem;
+  
+  &:hover:not(:disabled) {
+    background: rgba(255, 45, 149, 0.1);
+    border-color: ${({ theme }) => theme.colors.secondary};
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
 const ActionButton = styled.button<{ $variant: 'primary' | 'secondary' | 'danger' }>`
   width: 100%;
   padding: 0.875rem;
@@ -365,7 +388,10 @@ interface SlotData {
   endTime: string;
   status: string;
   booking?: {
+    id: string;
+    djId: string;
     djName: string;
+    djUsername?: string;
     b2bPartner?: string;
   };
 }
@@ -393,6 +419,7 @@ export default function ManageEventPage() {
   const [slots, setSlots] = useState<SlotData[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [cancellingSlotId, setCancellingSlotId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sdkUsername, setSdkUsername] = useState<string | null>(null);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
@@ -498,6 +525,44 @@ export default function ManageEventPage() {
     }
   };
 
+  const handleCancelBooking = async (slot: SlotData) => {
+    if (!slot.booking) return;
+    
+    const djName = slot.booking.djName;
+    if (!confirm(`Cancel ${djName}'s set at ${formatTime(slot.startTime)}?`)) return;
+
+    setCancellingSlotId(slot.id);
+    setError(null);
+
+    try {
+      const username = sdkUsername || user?.username;
+      const response = await fetch(`/api/bookings/${slot.booking.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to cancel booking');
+      }
+
+      // Refresh the event data
+      const refreshUrl = username 
+        ? `/api/host/events/${id}?username=${encodeURIComponent(username)}`
+        : `/api/host/events/${id}`;
+      const refreshResponse = await fetch(refreshUrl);
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        setSlots(data.slots || []);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel booking');
+    } finally {
+      setCancellingSlotId(null);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -590,6 +655,12 @@ export default function ManageEventPage() {
                         {slot.booking.b2bPartner && (
                           <B2BBadge>+ {slot.booking.b2bPartner}</B2BBadge>
                         )}
+                        <CancelSlotButton
+                          onClick={() => handleCancelBooking(slot)}
+                          disabled={cancellingSlotId === slot.id}
+                        >
+                          {cancellingSlotId === slot.id ? 'Cancelling...' : 'Cancel'}
+                        </CancelSlotButton>
                       </>
                     ) : (
                       <OpenSlot>Open</OpenSlot>

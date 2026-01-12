@@ -1,6 +1,105 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import DurationPicker from './DurationPicker';
+
+const ImageUploadContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const ImagePreviewWrapper = styled.div<{ $hasImage: boolean }>`
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 2px dashed ${({ $hasImage }) => 
+    $hasImage ? 'rgba(57, 255, 20, 0.4)' : 'rgba(57, 255, 20, 0.2)'};
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.accent};
+    background-color: rgba(57, 255, 20, 0.05);
+  }
+`;
+
+const ImagePreview = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const ImagePlaceholder = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 0.75rem;
+  color: rgba(224, 224, 224, 0.5);
+  
+  svg {
+    width: 48px;
+    height: 48px;
+    opacity: 0.6;
+  }
+`;
+
+const PlaceholderText = styled.span`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.85rem;
+`;
+
+const HiddenInput = styled.input`
+  display: none;
+`;
+
+const ImageActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const ImageActionButton = styled.button`
+  flex: 1;
+  padding: 0.5rem;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.75rem;
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(57, 255, 20, 0.2);
+  border-radius: 6px;
+  color: rgba(224, 224, 224, 0.7);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.accent};
+    color: ${({ theme }) => theme.colors.accent};
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const UploadingOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${({ theme }) => theme.colors.accent};
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.9rem;
+`;
 
 const Form = styled.form`
   display: flex;
@@ -198,6 +297,7 @@ const Button = styled.button<{ $variant: 'primary' | 'secondary' }>`
 export interface EventFormData {
   title: string;
   description: string;
+  imageUrl: string | null;
   eventDate: string;
   startTime: string;
   endTime: string;
@@ -210,19 +310,31 @@ export interface EventFormData {
 interface EventFormProps {
   initialData?: Partial<EventFormData>;
   onSubmit: (data: EventFormData, publish: boolean) => void;
+  onImageUpload?: (file: File) => Promise<string | null>;
   loading?: boolean;
   isEdit?: boolean;
 }
 
+const ImageIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <polyline points="21,15 16,10 5,21" />
+  </svg>
+);
+
 export default function EventForm({
   initialData,
   onSubmit,
+  onImageUpload,
   loading,
   isEdit,
 }: EventFormProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<EventFormData>({
     title: initialData?.title || '',
     description: initialData?.description || '',
+    imageUrl: initialData?.imageUrl || null,
     eventDate: initialData?.eventDate || '',
     startTime: initialData?.startTime || '',
     endTime: initialData?.endTime || '',
@@ -233,6 +345,8 @@ export default function EventForm({
   });
 
   const [slotsCount, setSlotsCount] = useState(0);
+  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.imageUrl || null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (formData.startTime && formData.endTime && formData.eventDate) {
@@ -251,8 +365,62 @@ export default function EventForm({
     }
   }, [formData.startTime, formData.endTime, formData.eventDate, formData.slotDurationMinutes]);
 
-  const handleChange = (field: keyof EventFormData, value: string | number | boolean) => {
+  const handleChange = (field: keyof EventFormData, value: string | number | boolean | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setImagePreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload if handler provided
+    if (onImageUpload) {
+      setUploadingImage(true);
+      try {
+        const uploadedUrl = await onImageUpload(file);
+        if (uploadedUrl) {
+          handleChange('imageUrl', uploadedUrl);
+        }
+      } catch (err) {
+        console.error('Failed to upload image:', err);
+        alert('Failed to upload image. Please try again.');
+        setImagePreview(formData.imageUrl);
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview(null);
+    handleChange('imageUrl', null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = (publish: boolean) => (e: React.FormEvent) => {
@@ -282,6 +450,54 @@ export default function EventForm({
           value={formData.description}
           onChange={(e) => handleChange('description', e.target.value)}
         />
+      </FormGroup>
+
+      <FormGroup>
+        <Label>Event Image</Label>
+        <ImageUploadContainer>
+          <ImagePreviewWrapper 
+            $hasImage={!!imagePreview} 
+            onClick={handleImageClick}
+          >
+            {imagePreview ? (
+              <>
+                <ImagePreview src={imagePreview} alt="Event preview" />
+                {uploadingImage && (
+                  <UploadingOverlay>Uploading...</UploadingOverlay>
+                )}
+              </>
+            ) : (
+              <ImagePlaceholder>
+                <ImageIcon />
+                <PlaceholderText>Click to add event image</PlaceholderText>
+              </ImagePlaceholder>
+            )}
+          </ImagePreviewWrapper>
+          <HiddenInput
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={handleImageChange}
+          />
+          {imagePreview && (
+            <ImageActions>
+              <ImageActionButton 
+                type="button" 
+                onClick={handleImageClick}
+                disabled={uploadingImage}
+              >
+                Change Image
+              </ImageActionButton>
+              <ImageActionButton 
+                type="button" 
+                onClick={handleRemoveImage}
+                disabled={uploadingImage}
+              >
+                Remove
+              </ImageActionButton>
+            </ImageActions>
+          )}
+        </ImageUploadContainer>
       </FormGroup>
 
       <FormGroup>

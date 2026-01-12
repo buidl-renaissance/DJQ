@@ -77,6 +77,14 @@ export function generateProfilePictureKey(userId: string, extension: string): st
 }
 
 /**
+ * Generate a unique key for event image uploads
+ */
+export function generateEventImageKey(eventId: string, extension: string): string {
+  const timestamp = Date.now();
+  return `event-images/${eventId}/${timestamp}.${extension}`;
+}
+
+/**
  * Extract the key from a DO Spaces URL
  */
 export function extractKeyFromUrl(url: string): string | null {

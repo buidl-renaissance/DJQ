@@ -1,15 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getUserById, updateUserProfile } from '@/db/user';
+import { getUserById, getUserByPhone, updateUserProfile } from '@/db/user';
 
 type ResponseData = {
   user?: {
     id: string;
     fid: string | null;
     username: string | null;
-    name: string | null;
-    pfpUrl: string | null;
     displayName: string | null;
-    profilePicture: string | null;
+    pfpUrl: string | null;
+    phone: string | null;
   };
   error?: string;
 };
@@ -54,10 +53,10 @@ export default async function handler(
     }
 
     // Parse and validate request body
-    const { displayName, profilePicture } = req.body;
+    const { displayName, pfpUrl, phone } = req.body;
 
     // Build update data object
-    const updateData: { displayName?: string; profilePicture?: string | null } = {};
+    const updateData: { displayName?: string; pfpUrl?: string | null; phone?: string } = {};
 
     // Validate displayName if provided
     if (displayName !== undefined) {
@@ -78,26 +77,54 @@ export default async function handler(
       updateData.displayName = trimmedName;
     }
 
-    // Validate profilePicture if provided
-    if (profilePicture !== undefined) {
-      if (profilePicture === null || profilePicture === '') {
+    // Validate pfpUrl if provided
+    if (pfpUrl !== undefined) {
+      if (pfpUrl === null || pfpUrl === '') {
         // Allow clearing the profile picture
-        updateData.profilePicture = null;
-      } else if (typeof profilePicture !== 'string') {
-        return res.status(400).json({ error: 'profilePicture must be a string or null' });
+        updateData.pfpUrl = null;
+      } else if (typeof pfpUrl !== 'string') {
+        return res.status(400).json({ error: 'pfpUrl must be a string or null' });
       } else {
-        const trimmedUrl = profilePicture.trim();
+        const trimmedUrl = pfpUrl.trim();
         
         if (trimmedUrl.length > 2000) {
-          return res.status(400).json({ error: 'profilePicture must be 2000 characters or less' });
+          return res.status(400).json({ error: 'pfpUrl must be 2000 characters or less' });
         }
 
         if (!isValidUrl(trimmedUrl)) {
-          return res.status(400).json({ error: 'profilePicture must be a valid URL' });
+          return res.status(400).json({ error: 'pfpUrl must be a valid URL' });
         }
 
-        updateData.profilePicture = trimmedUrl;
+        updateData.pfpUrl = trimmedUrl;
       }
+    }
+
+    // Validate phone if provided
+    if (phone !== undefined) {
+      if (typeof phone !== 'string') {
+        return res.status(400).json({ error: 'phone must be a string' });
+      }
+
+      // Normalize phone number (strip non-digits except leading +)
+      const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
+      
+      if (normalizedPhone.length === 0) {
+        return res.status(400).json({ error: 'phone cannot be empty' });
+      }
+
+      // Basic phone validation (at least 10 digits)
+      const digitsOnly = normalizedPhone.replace(/\D/g, '');
+      if (digitsOnly.length < 10) {
+        return res.status(400).json({ error: 'phone must have at least 10 digits' });
+      }
+
+      // Check if phone is already in use by another user
+      const existingUserWithPhone = await getUserByPhone(normalizedPhone);
+      if (existingUserWithPhone && existingUserWithPhone.id !== userId) {
+        return res.status(400).json({ error: 'This phone number is already in use' });
+      }
+
+      updateData.phone = normalizedPhone;
     }
 
     // Ensure at least one field is being updated
@@ -117,10 +144,9 @@ export default async function handler(
         id: updatedUser.id,
         fid: updatedUser.fid ?? null,
         username: updatedUser.username ?? null,
-        name: updatedUser.name ?? null,
-        pfpUrl: updatedUser.pfpUrl ?? null,
         displayName: updatedUser.displayName ?? null,
-        profilePicture: updatedUser.profilePicture ?? null,
+        pfpUrl: updatedUser.pfpUrl ?? null,
+        phone: updatedUser.phone ?? null,
       },
     });
   } catch (error) {
