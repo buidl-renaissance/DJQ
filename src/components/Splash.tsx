@@ -291,9 +291,13 @@ const Splash: React.FC<SplashProps> = ({ user, isLoading = false, redirectDelay 
     }
   }, [router, redirectDelay, user, isLoading]);
 
-  const displayName = user?.username || user?.displayName || (user?.fid ? `User ${user.fid}` : '');
-  const initials = displayName
-    ? displayName
+  // Use app-specific displayName first, then fall back to synced name, then username
+  const userName = user?.displayName || user?.name || user?.username || (user?.fid ? `User ${user.fid}` : '');
+  // Use app-specific profilePicture first, then fall back to synced pfpUrl
+  const userPicture = user?.profilePicture || user?.pfpUrl;
+  
+  const initials = userName
+    ? userName
         .split(' ')
         .map((n) => n[0])
         .join('')
@@ -313,17 +317,17 @@ const Splash: React.FC<SplashProps> = ({ user, isLoading = false, redirectDelay 
         {user ? (
           <>
             <ProfileImageContainer>
-              {user.pfpUrl && !imageError ? (
+              {userPicture && !imageError ? (
                 <ProfileImage
-                  src={user.pfpUrl}
-                  alt={displayName}
+                  src={userPicture}
+                  alt={userName}
                   onError={() => setImageError(true)}
                 />
               ) : (
                 <DefaultAvatar>{initials}</DefaultAvatar>
               )}
             </ProfileImageContainer>
-            <WelcomeText>Welcome back, {displayName}!</WelcomeText>
+            <WelcomeText>Welcome back, {userName}!</WelcomeText>
             <SubText>Loading your dashboard...</SubText>
           </>
         ) : (
