@@ -47,12 +47,13 @@ export default async function handler(
             const verifiedData = await verifyResponse.json();
             if (verifiedData.valid && verifiedData.fid) {
               const fid = String(verifiedData.fid);
-              user = await getOrCreateUserByFid(fid, {
+              const result = await getOrCreateUserByFid(fid, {
                 fid,
                 username: verifiedData.username,
-                displayName: verifiedData.display_name,
+                name: verifiedData.display_name,
                 pfpUrl: verifiedData.pfp_url,
               });
+              user = result.user;
               
               if (verifiedData.username) {
                 await upsertFarcasterAccount(user.id, {
