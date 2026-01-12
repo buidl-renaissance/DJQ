@@ -204,9 +204,13 @@ export default async function handler(
     // Generate unique key for the file
     const extension = getExtension(contentType);
     const key = generateProfilePictureKey(userId, extension);
+    
+    console.log(`📁 Uploading avatar - userId: ${userId}, key: ${key}, contentType: ${contentType}`);
 
     // Upload to DigitalOcean Spaces
     const uploadResult = await uploadFile(buffer, key, contentType);
+    
+    console.log(`📁 Upload result - url: ${uploadResult.url}`);
 
     // Update user's profile with new avatar URL
     const updatedUser = await updateUserProfile(userId, {
