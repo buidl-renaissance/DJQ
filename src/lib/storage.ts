@@ -45,10 +45,9 @@ export async function uploadFile(
 
   await s3Client.send(command);
 
-  // Construct the public URL
+  // Construct the public URL (non-CDN, works without CDN enabled)
   // DO Spaces URLs are: https://{bucket}.{region}.digitaloceanspaces.com/{key}
-  // or with CDN: https://{bucket}.{region}.cdn.digitaloceanspaces.com/{key}
-  const url = `https://${spacesBucket}.${spacesRegion}.cdn.digitaloceanspaces.com/${key}`;
+  const url = `https://${spacesBucket}.${spacesRegion}.digitaloceanspaces.com/${key}`;
 
   return { url, key };
 }
@@ -83,8 +82,12 @@ export function generateProfilePictureKey(userId: string, extension: string): st
 export function extractKeyFromUrl(url: string): string | null {
   try {
     const urlObj = new URL(url);
-    // URL format: https://{bucket}.{region}.cdn.digitaloceanspaces.com/{key}
-    // or: https://{bucket}.{region}.digitaloceanspaces.com/{key}
+    // URL format: https://{bucket}.{region}.digitaloceanspaces.com/{key}
+    // or with CDN: https://{bucket}.{region}.cdn.digitaloceanspaces.com/{key}
+    // Only extract from our spaces domain
+    if (!urlObj.hostname.endsWith('digitaloceanspaces.com')) {
+      return null;
+    }
     const pathname = urlObj.pathname;
     // Remove leading slash
     return pathname.startsWith('/') ? pathname.slice(1) : pathname;
