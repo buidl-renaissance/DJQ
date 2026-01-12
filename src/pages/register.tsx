@@ -235,9 +235,27 @@ export default function RegisterPage() {
     }
   }, [router.isReady, phoneParam, redirect, redirectUrl, router]);
 
+  // Validate username: only letters, numbers, and underscores
+  const isValidUsername = (value: string) => /^[A-Za-z0-9_]+$/.test(value);
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow valid characters as they type
+    const value = e.target.value;
+    // Filter out invalid characters (only allow letters, numbers, underscores)
+    const filtered = value.replace(/[^A-Za-z0-9_]/g, '');
+    setUsername(filtered);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Client-side validation
+    if (!isValidUsername(username)) {
+      setError('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -312,7 +330,7 @@ export default function RegisterPage() {
               <Input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={handleUsernameChange}
                 placeholder="your_username"
                 required
                 autoComplete="username"

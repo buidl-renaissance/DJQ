@@ -27,6 +27,12 @@ export default async function handler(
       return res.status(400).json({ error: 'Username is required' });
     }
 
+    // Validate username format: only letters (A-Za-z), numbers (0-9), and underscores, no dashes
+    const usernameRegex = /^[A-Za-z0-9_]+$/;
+    if (!usernameRegex.test(username.trim())) {
+      return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores' });
+    }
+
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Name is required' });
     }
