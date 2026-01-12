@@ -128,10 +128,11 @@ export default async function handler(
     }
 
     // Get or create user in database
+    // Farcaster's displayName is stored as 'name' (synced from parent app)
     const user = await getOrCreateUserByFid(fid, {
       fid,
       username,
-      displayName,
+      name: displayName, // Store Farcaster displayName as 'name'
       pfpUrl,
     });
 
