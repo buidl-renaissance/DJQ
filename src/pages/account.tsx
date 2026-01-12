@@ -316,6 +316,44 @@ const PencilIcon = () => (
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
+// Format phone number as user types: (XXX) XXX-XXXX or +1 (XXX) XXX-XXXX
+const formatPhoneNumber = (value: string): string => {
+  // Strip all non-digit characters except leading +
+  const hasPlus = value.startsWith('+');
+  const digits = value.replace(/\D/g, '');
+  
+  if (!digits) return hasPlus ? '+' : '';
+  
+  // Handle +1 or 1 prefix (US country code)
+  let formatted = '';
+  let digitIndex = 0;
+  
+  if (hasPlus || digits.startsWith('1')) {
+    // International format: +1 (XXX) XXX-XXXX
+    if (digits.startsWith('1')) {
+      formatted = '+1 ';
+      digitIndex = 1;
+    } else {
+      formatted = '+';
+    }
+  }
+  
+  const remaining = digits.slice(digitIndex);
+  
+  if (remaining.length === 0) return formatted.trim();
+  
+  // Format remaining digits as (XXX) XXX-XXXX
+  if (remaining.length <= 3) {
+    formatted += `(${remaining}`;
+  } else if (remaining.length <= 6) {
+    formatted += `(${remaining.slice(0, 3)}) ${remaining.slice(3)}`;
+  } else {
+    formatted += `(${remaining.slice(0, 3)}) ${remaining.slice(3, 6)}-${remaining.slice(6, 10)}`;
+  }
+  
+  return formatted;
+};
+
 export default function AccountPage() {
   const { user, isLoading, updateUser } = useUser();
   const router = useRouter();
@@ -328,6 +366,11 @@ export default function AccountPage() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+
+  // Phone state
+  const [phone, setPhone] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [phoneMessage, setPhoneMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // PIN state
   const [currentPin, setCurrentPin] = useState('');
@@ -345,11 +388,18 @@ export default function AccountPage() {
       setDisplayName(user.displayName || '');
       setCurrentProfilePicture(user.profilePicture || null);
       setPreviewUrl(user.profilePicture || null);
+      setPhone(formatPhoneNumber(user.phone || ''));
     }
   }, [user]);
 
   const hasNameChanges = () => {
     return displayName.trim() !== (user?.displayName || '');
+  };
+
+  const hasPhoneChanges = () => {
+    const currentPhone = (user?.phone || '').replace(/[\s\-\(\)]/g, '');
+    const newPhone = phone.replace(/[\s\-\(\)]/g, '');
+    return newPhone !== currentPhone;
   };
 
   const handleFileSelect = async (file: File) => {
@@ -516,6 +566,61 @@ export default function AccountPage() {
       setMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setPhone(formatted);
+  };
+
+  const handleSavePhone = async () => {
+    setPhoneMessage(null);
+
+    // Normalize phone number
+    const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
+
+    // Basic validation
+    if (!normalizedPhone) {
+      setPhoneMessage({ type: 'error', text: 'Phone number is required' });
+      return;
+    }
+
+    // Check for minimum length (at least 10 digits for US numbers)
+    const digitsOnly = normalizedPhone.replace(/\D/g, '');
+    if (digitsOnly.length < 10) {
+      setPhoneMessage({ type: 'error', text: 'Please enter a valid phone number' });
+      return;
+    }
+
+    setSavingPhone(true);
+
+    try {
+      const res = await fetch('/api/user/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizedPhone }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPhoneMessage({ type: 'error', text: data.error || 'Failed to update phone number' });
+        return;
+      }
+
+      setPhoneMessage({ type: 'success', text: 'Phone number updated!' });
+      
+      // Update with formatted value from server
+      if (data.user?.phone) {
+        setPhone(formatPhoneNumber(data.user.phone));
+        updateUser({ phone: data.user.phone });
+      }
+    } catch (err) {
+      console.error('Error updating phone:', err);
+      setPhoneMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -734,6 +839,32 @@ export default function AccountPage() {
             $loading={saving}
           >
             {saving ? 'Saving...' : 'Save Name'}
+          </SaveButton>
+        </Card>
+
+        <Card>
+          <CardTitle>Phone Number</CardTitle>
+          
+          {phoneMessage && (
+            <Message $type={phoneMessage.type}>{phoneMessage.text}</Message>
+          )}
+          
+          <FormGroup>
+            <Input
+              type="tel"
+              value={phone}
+              onChange={handlePhoneChange}
+              placeholder="+1 (555) 123-4567"
+              autoComplete="tel"
+            />
+          </FormGroup>
+
+          <SaveButton 
+            onClick={handleSavePhone} 
+            disabled={savingPhone || !hasPhoneChanges() || !phone.trim()}
+            $loading={savingPhone}
+          >
+            {savingPhone ? 'Saving...' : 'Save Phone'}
           </SaveButton>
         </Card>
 
