@@ -1,6 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import sharp from 'sharp';
 import { getUserById, updateUserProfile } from '@/db/user';
 import { uploadFile, generateProfilePictureKey, isStorageConfigured, extractKeyFromUrl, deleteFile } from '@/lib/storage';
+
+// Avatar dimensions
+const AVATAR_SIZE = 200;
 
 // Disable body parsing to handle raw file data
 export const config = {
@@ -122,17 +126,6 @@ function splitBuffer(buffer: Buffer, boundary: Buffer): Buffer[] {
   return parts;
 }
 
-// Get file extension from content type
-function getExtension(contentType: string): string {
-  const map: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/gif': 'gif',
-    'image/webp': 'webp',
-  };
-  return map[contentType] || 'jpg';
-}
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ResponseData>
@@ -201,14 +194,26 @@ export default async function handler(
       }
     }
 
-    // Generate unique key for the file
-    const extension = getExtension(contentType);
-    const key = generateProfilePictureKey(userId, extension);
+    // Process image: resize to 200x200 square (crop to cover)
+    console.log(`📁 Processing avatar - userId: ${userId}, originalSize: ${buffer.length} bytes`);
     
-    console.log(`📁 Uploading avatar - userId: ${userId}, key: ${key}, contentType: ${contentType}`);
+    const processedBuffer = await sharp(buffer)
+      .resize(AVATAR_SIZE, AVATAR_SIZE, {
+        fit: 'cover', // Crop to fill the square
+        position: 'centre', // Center the crop
+      })
+      .jpeg({ quality: 85 }) // Convert to JPEG for consistent output
+      .toBuffer();
+
+    console.log(`📁 Processed avatar - newSize: ${processedBuffer.length} bytes`);
+
+    // Generate unique key for the file (always .jpg since we convert to JPEG)
+    const key = generateProfilePictureKey(userId, 'jpg');
+    
+    console.log(`📁 Uploading avatar - userId: ${userId}, key: ${key}`);
 
     // Upload to DigitalOcean Spaces
-    const uploadResult = await uploadFile(buffer, key, contentType);
+    const uploadResult = await uploadFile(processedBuffer, key, 'image/jpeg');
     
     console.log(`📁 Upload result - url: ${uploadResult.url}`);
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
 import AppLayout from '@/components/layout/AppLayout';
+import ImageCropModal from '@/components/ImageCropModal';
 import { useUser } from '@/contexts/UserContext';
 import { useRouter } from 'next/router';
 
@@ -314,13 +315,14 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
 
   // Initialize form fields when user loads
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
-      setCurrentProfilePicture(user.pfpUrl || null);
-      setPreviewUrl(user.pfpUrl || null);
+      setCurrentProfilePicture(user.profilePicture || null);
+      setPreviewUrl(user.profilePicture || null);
     }
   }, [user]);
 
@@ -341,16 +343,29 @@ export default function AccountPage() {
       return;
     }
 
-    setUploading(true);
     setMessage(null);
 
+    // Create a URL for the image and show crop modal
+    const imageUrl = URL.createObjectURL(file);
+    setImageToCrop(imageUrl);
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    // Clean up the crop image URL
+    if (imageToCrop) {
+      URL.revokeObjectURL(imageToCrop);
+    }
+    setImageToCrop(null);
+
+    setUploading(true);
+
     // Show local preview immediately
-    const localPreview = URL.createObjectURL(file);
+    const localPreview = URL.createObjectURL(croppedBlob);
     setPreviewUrl(localPreview);
 
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', croppedBlob, 'avatar.jpg');
 
       const res = await fetch('/api/user/upload-avatar', {
         method: 'POST',
@@ -367,11 +382,11 @@ export default function AccountPage() {
       }
 
       // Update with server URL
-      if (data.user?.pfpUrl) {
-        setCurrentProfilePicture(data.user.pfpUrl);
-        setPreviewUrl(data.user.pfpUrl);
+      if (data.user?.profilePicture) {
+        setCurrentProfilePicture(data.user.profilePicture);
+        setPreviewUrl(data.user.profilePicture);
         // Update the user context so other parts of the app see the change
-        updateUser({ pfpUrl: data.user.pfpUrl });
+        updateUser({ profilePicture: data.user.profilePicture });
       }
       
       setMessage({ type: 'success', text: 'Profile picture updated!' });
@@ -385,6 +400,14 @@ export default function AccountPage() {
       // Clean up local preview URL
       URL.revokeObjectURL(localPreview);
     }
+  };
+
+  const handleCropCancel = () => {
+    // Clean up the crop image URL
+    if (imageToCrop) {
+      URL.revokeObjectURL(imageToCrop);
+    }
+    setImageToCrop(null);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -412,7 +435,7 @@ export default function AccountPage() {
       const res = await fetch('/api/user/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pfpUrl: null }),
+        body: JSON.stringify({ profilePicture: null }),
       });
 
       const data = await res.json();
@@ -425,7 +448,7 @@ export default function AccountPage() {
       setCurrentProfilePicture(null);
       setPreviewUrl(null);
       // Update the user context so other parts of the app see the change
-      updateUser({ pfpUrl: null });
+      updateUser({ profilePicture: null });
       setMessage({ type: 'success', text: 'Profile picture removed!' });
     } catch (err) {
       console.error('Error removing picture:', err);
@@ -578,6 +601,14 @@ export default function AccountPage() {
             {saving ? 'Saving...' : 'Save Name'}
           </SaveButton>
         </Card>
+
+        {imageToCrop && (
+          <ImageCropModal
+            imageSrc={imageToCrop}
+            onCropComplete={handleCropComplete}
+            onCancel={handleCropCancel}
+          />
+        )}
       </Container>
     </AppLayout>
   );
