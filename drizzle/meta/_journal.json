@@ -8,6 +8,13 @@
       "when": 1768102740560,
       "tag": "0000_spooky_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1768178003094,
+      "tag": "0001_flaky_shriek",
+      "breakpoints": true
     }
   ]
 }

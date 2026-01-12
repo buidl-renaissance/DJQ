@@ -308,7 +308,7 @@ export default function AccountPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [displayName, setDisplayName] = useState('');
+  const [customDisplayName, setCustomDisplayName] = useState('');
   const [currentPfpUrl, setCurrentPfpUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -316,16 +316,18 @@ export default function AccountPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Initialize form fields when user loads
+  // Use customDisplayName if set, otherwise fall back to Farcaster displayName
   useEffect(() => {
     if (user) {
-      setDisplayName(user.displayName || '');
+      setCustomDisplayName(user.customDisplayName || user.displayName || '');
       setCurrentPfpUrl(user.pfpUrl || null);
       setPreviewUrl(user.pfpUrl || null);
     }
   }, [user]);
 
   const hasNameChanges = () => {
-    return displayName.trim() !== (user?.displayName || '');
+    const currentName = user?.customDisplayName || user?.displayName || '';
+    return customDisplayName.trim() !== currentName;
   };
 
   const handleFileSelect = async (file: File) => {
@@ -436,7 +438,7 @@ export default function AccountPage() {
   };
 
   const handleSaveName = async () => {
-    if (!displayName.trim()) {
+    if (!customDisplayName.trim()) {
       setMessage({ type: 'error', text: 'Name cannot be empty' });
       return;
     }
@@ -448,7 +450,7 @@ export default function AccountPage() {
       const res = await fetch('/api/user/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: displayName.trim() }),
+        body: JSON.stringify({ customDisplayName: customDisplayName.trim() }),
       });
 
       const data = await res.json();
@@ -462,9 +464,9 @@ export default function AccountPage() {
       
       if (data.user) {
         // Update local state
-        setDisplayName(data.user.displayName || '');
+        setCustomDisplayName(data.user.customDisplayName || '');
         // Update the user context so other parts of the app see the change
-        updateUser({ displayName: data.user.displayName });
+        updateUser({ customDisplayName: data.user.customDisplayName });
       }
     } catch (err) {
       console.error('Error updating name:', err);
@@ -520,9 +522,9 @@ export default function AccountPage() {
               {uploading ? (
                 <Spinner />
               ) : previewUrl ? (
-                <AvatarImage src={previewUrl} alt={displayName || 'Profile'} />
+                <AvatarImage src={previewUrl} alt={customDisplayName || 'Profile'} />
               ) : (
-                <AvatarPlaceholder>{getInitials(displayName)}</AvatarPlaceholder>
+                <AvatarPlaceholder>{getInitials(customDisplayName)}</AvatarPlaceholder>
               )}
             </Avatar>
             {!uploading && (
@@ -563,8 +565,8 @@ export default function AccountPage() {
           <FormGroup>
             <Input
               type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              value={customDisplayName}
+              onChange={(e) => setCustomDisplayName(e.target.value)}
               placeholder="Enter your name"
               maxLength={100}
             />
@@ -572,7 +574,7 @@ export default function AccountPage() {
 
           <SaveButton 
             onClick={handleSaveName} 
-            disabled={saving || uploading || !hasNameChanges() || !displayName.trim()}
+            disabled={saving || uploading || !hasNameChanges() || !customDisplayName.trim()}
             $loading={saving}
           >
             {saving ? 'Saving...' : 'Save Name'}

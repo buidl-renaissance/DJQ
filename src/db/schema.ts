@@ -8,7 +8,8 @@ export const users = sqliteTable('users', {
   phone: text('phone').unique(), // For direct registration/login
   email: text('email'), // Optional
   username: text('username'),
-  displayName: text('displayName'), // Used as "name"
+  displayName: text('displayName'), // Synced from Farcaster
+  customDisplayName: text('customDisplayName'), // User's custom name for this app
   pfpUrl: text('pfpUrl'),
   createdAt: integer('createdAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),

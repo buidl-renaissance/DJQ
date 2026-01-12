@@ -7,6 +7,7 @@ type ResponseData = {
     fid: string | null;
     username: string | null;
     displayName: string | null;
+    customDisplayName: string | null;
     pfpUrl: string | null;
   };
   error?: string;
@@ -52,28 +53,28 @@ export default async function handler(
     }
 
     // Parse and validate request body
-    const { displayName, pfpUrl } = req.body;
+    const { customDisplayName, pfpUrl } = req.body;
 
     // Build update data object
-    const updateData: { displayName?: string; pfpUrl?: string | null } = {};
+    const updateData: { customDisplayName?: string; pfpUrl?: string | null } = {};
 
-    // Validate displayName if provided
-    if (displayName !== undefined) {
-      if (typeof displayName !== 'string') {
-        return res.status(400).json({ error: 'displayName must be a string' });
+    // Validate customDisplayName if provided
+    if (customDisplayName !== undefined) {
+      if (typeof customDisplayName !== 'string') {
+        return res.status(400).json({ error: 'customDisplayName must be a string' });
       }
 
-      const trimmedName = displayName.trim();
+      const trimmedName = customDisplayName.trim();
       
       if (trimmedName.length === 0) {
-        return res.status(400).json({ error: 'displayName cannot be empty' });
+        return res.status(400).json({ error: 'customDisplayName cannot be empty' });
       }
 
       if (trimmedName.length > 100) {
-        return res.status(400).json({ error: 'displayName must be 100 characters or less' });
+        return res.status(400).json({ error: 'customDisplayName must be 100 characters or less' });
       }
 
-      updateData.displayName = trimmedName;
+      updateData.customDisplayName = trimmedName;
     }
 
     // Validate pfpUrl if provided
@@ -116,6 +117,7 @@ export default async function handler(
         fid: updatedUser.fid ?? null,
         username: updatedUser.username ?? null,
         displayName: updatedUser.displayName ?? null,
+        customDisplayName: updatedUser.customDisplayName ?? null,
         pfpUrl: updatedUser.pfpUrl ?? null,
       },
     });

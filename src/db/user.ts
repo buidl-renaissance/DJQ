@@ -9,7 +9,8 @@ export interface User {
   phone?: string | null; // For direct registration/login
   email?: string | null; // Optional
   username?: string | null;
-  displayName?: string | null;
+  displayName?: string | null; // Synced from Farcaster
+  customDisplayName?: string | null; // User's custom name for this app
   pfpUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -48,6 +49,7 @@ export async function getUserByFid(fid: string): Promise<User | null> {
     email: row.email,
     username: row.username,
     displayName: row.displayName,
+    customDisplayName: row.customDisplayName,
     pfpUrl: row.pfpUrl,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
@@ -71,6 +73,7 @@ export async function getUserById(userId: string): Promise<User | null> {
     email: row.email,
     username: row.username,
     displayName: row.displayName,
+    customDisplayName: row.customDisplayName,
     pfpUrl: row.pfpUrl,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
@@ -94,6 +97,7 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
     email: row.email,
     username: row.username,
     displayName: row.displayName,
+    customDisplayName: row.customDisplayName,
     pfpUrl: row.pfpUrl,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
@@ -117,6 +121,7 @@ export async function getUserByUsername(username: string): Promise<User | null> 
     email: row.email,
     username: row.username,
     displayName: row.displayName,
+    customDisplayName: row.customDisplayName,
     pfpUrl: row.pfpUrl,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
@@ -144,7 +149,7 @@ export async function updateUserDisplayName(userId: string, displayName: string)
 }
 
 export interface UpdateUserProfileData {
-  displayName?: string;
+  customDisplayName?: string;
   pfpUrl?: string | null;
 }
 
@@ -153,10 +158,10 @@ export async function updateUserProfile(userId: string, data: UpdateUserProfileD
   if (!existing) return null;
 
   const now = new Date();
-  const updateData: { displayName?: string; pfpUrl?: string | null; updatedAt: Date } = { updatedAt: now };
+  const updateData: { customDisplayName?: string; pfpUrl?: string | null; updatedAt: Date } = { updatedAt: now };
 
-  if (data.displayName !== undefined) {
-    updateData.displayName = data.displayName;
+  if (data.customDisplayName !== undefined) {
+    updateData.customDisplayName = data.customDisplayName;
   }
   if (data.pfpUrl !== undefined) {
     updateData.pfpUrl = data.pfpUrl;
@@ -208,7 +213,7 @@ export async function getOrCreateUserByFid(
   const existing = await getUserByFid(fid);
   
   if (existing) {
-    // Update user if new data is provided
+    // Update user if new data is provided - sync Farcaster data
     if (userData) {
       const now = new Date();
       const updateData: {
@@ -218,6 +223,8 @@ export async function getOrCreateUserByFid(
         updatedAt: Date;
       } = { updatedAt: now };
       
+      // Sync all Farcaster data (username, displayName, pfpUrl)
+      // User's customDisplayName is stored separately and won't be affected
       if (userData.username !== undefined) updateData.username = userData.username;
       if (userData.displayName !== undefined) updateData.displayName = userData.displayName;
       if (userData.pfpUrl !== undefined) updateData.pfpUrl = userData.pfpUrl;
