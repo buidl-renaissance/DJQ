@@ -6,9 +6,10 @@ type ResponseData = {
     id: string;
     fid: string | null;
     username: string | null;
-    displayName: string | null;
-    customDisplayName: string | null;
+    name: string | null;
     pfpUrl: string | null;
+    displayName: string | null;
+    profilePicture: string | null;
   };
   error?: string;
 };
@@ -53,49 +54,49 @@ export default async function handler(
     }
 
     // Parse and validate request body
-    const { customDisplayName, pfpUrl } = req.body;
+    const { displayName, profilePicture } = req.body;
 
     // Build update data object
-    const updateData: { customDisplayName?: string; pfpUrl?: string | null } = {};
+    const updateData: { displayName?: string; profilePicture?: string | null } = {};
 
-    // Validate customDisplayName if provided
-    if (customDisplayName !== undefined) {
-      if (typeof customDisplayName !== 'string') {
-        return res.status(400).json({ error: 'customDisplayName must be a string' });
+    // Validate displayName if provided
+    if (displayName !== undefined) {
+      if (typeof displayName !== 'string') {
+        return res.status(400).json({ error: 'displayName must be a string' });
       }
 
-      const trimmedName = customDisplayName.trim();
+      const trimmedName = displayName.trim();
       
       if (trimmedName.length === 0) {
-        return res.status(400).json({ error: 'customDisplayName cannot be empty' });
+        return res.status(400).json({ error: 'displayName cannot be empty' });
       }
 
       if (trimmedName.length > 100) {
-        return res.status(400).json({ error: 'customDisplayName must be 100 characters or less' });
+        return res.status(400).json({ error: 'displayName must be 100 characters or less' });
       }
 
-      updateData.customDisplayName = trimmedName;
+      updateData.displayName = trimmedName;
     }
 
-    // Validate pfpUrl if provided
-    if (pfpUrl !== undefined) {
-      if (pfpUrl === null || pfpUrl === '') {
+    // Validate profilePicture if provided
+    if (profilePicture !== undefined) {
+      if (profilePicture === null || profilePicture === '') {
         // Allow clearing the profile picture
-        updateData.pfpUrl = null;
-      } else if (typeof pfpUrl !== 'string') {
-        return res.status(400).json({ error: 'pfpUrl must be a string or null' });
+        updateData.profilePicture = null;
+      } else if (typeof profilePicture !== 'string') {
+        return res.status(400).json({ error: 'profilePicture must be a string or null' });
       } else {
-        const trimmedUrl = pfpUrl.trim();
+        const trimmedUrl = profilePicture.trim();
         
         if (trimmedUrl.length > 2000) {
-          return res.status(400).json({ error: 'pfpUrl must be 2000 characters or less' });
+          return res.status(400).json({ error: 'profilePicture must be 2000 characters or less' });
         }
 
         if (!isValidUrl(trimmedUrl)) {
-          return res.status(400).json({ error: 'pfpUrl must be a valid URL' });
+          return res.status(400).json({ error: 'profilePicture must be a valid URL' });
         }
 
-        updateData.pfpUrl = trimmedUrl;
+        updateData.profilePicture = trimmedUrl;
       }
     }
 
@@ -116,9 +117,10 @@ export default async function handler(
         id: updatedUser.id,
         fid: updatedUser.fid ?? null,
         username: updatedUser.username ?? null,
-        displayName: updatedUser.displayName ?? null,
-        customDisplayName: updatedUser.customDisplayName ?? null,
+        name: updatedUser.name ?? null,
         pfpUrl: updatedUser.pfpUrl ?? null,
+        displayName: updatedUser.displayName ?? null,
+        profilePicture: updatedUser.profilePicture ?? null,
       },
     });
   } catch (error) {

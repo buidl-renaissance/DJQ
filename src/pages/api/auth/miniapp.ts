@@ -14,10 +14,11 @@ export default async function handler(
   }
 
   try {
+    // displayName from Farcaster SDK will be stored as 'name' (synced field)
     const { fid, username, displayName, pfpUrl, renaissanceUserId } = req.body as {
       fid?: string;
       username?: string;
-      displayName?: string;
+      displayName?: string; // From Farcaster, stored as 'name'
       pfpUrl?: string;
       renaissanceUserId?: string;
     };
@@ -34,10 +35,11 @@ export default async function handler(
     });
 
     // Get or create user in database
+    // Farcaster's displayName is stored as 'name' (synced from parent app)
     const user = await getOrCreateUserByFid(fid, {
       fid,
       username: username || undefined,
-      displayName: displayName || undefined,
+      name: displayName || undefined, // Store Farcaster displayName as 'name'
       pfpUrl: pfpUrl || undefined,
     });
 
@@ -64,8 +66,10 @@ export default async function handler(
         id: user.id,
         fid: user.fid,
         username: user.username,
-        displayName: user.displayName,
-        pfpUrl: user.pfpUrl,
+        name: user.name, // Synced from Farcaster
+        pfpUrl: user.pfpUrl, // Synced from Farcaster
+        displayName: user.displayName, // App-specific (editable)
+        profilePicture: user.profilePicture, // App-specific (editable)
       },
     });
   } catch (error) {

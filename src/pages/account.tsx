@@ -308,26 +308,28 @@ export default function AccountPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [customDisplayName, setCustomDisplayName] = useState('');
-  const [currentPfpUrl, setCurrentPfpUrl] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('');
+  const [currentProfilePicture, setCurrentProfilePicture] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Initialize form fields when user loads
-  // Use customDisplayName if set, otherwise fall back to Farcaster displayName
+  // Use app-specific fields (displayName, profilePicture) with fallback to synced data (name, pfpUrl)
   useEffect(() => {
     if (user) {
-      setCustomDisplayName(user.customDisplayName || user.displayName || '');
-      setCurrentPfpUrl(user.pfpUrl || null);
-      setPreviewUrl(user.pfpUrl || null);
+      setDisplayName(user.displayName || user.name || '');
+      // Use profilePicture if set, otherwise fall back to synced pfpUrl
+      const effectivePfp = user.profilePicture || user.pfpUrl || null;
+      setCurrentProfilePicture(effectivePfp);
+      setPreviewUrl(effectivePfp);
     }
   }, [user]);
 
   const hasNameChanges = () => {
-    const currentName = user?.customDisplayName || user?.displayName || '';
-    return customDisplayName.trim() !== currentName;
+    const currentName = user?.displayName || user?.name || '';
+    return displayName.trim() !== currentName;
   };
 
   const handleFileSelect = async (file: File) => {
@@ -364,16 +366,16 @@ export default function AccountPage() {
       if (!res.ok) {
         setMessage({ type: 'error', text: data.error || 'Failed to upload image' });
         // Revert preview on error
-        setPreviewUrl(currentPfpUrl);
+        setPreviewUrl(currentProfilePicture);
         return;
       }
 
       // Update with server URL
-      if (data.user?.pfpUrl) {
-        setCurrentPfpUrl(data.user.pfpUrl);
-        setPreviewUrl(data.user.pfpUrl);
+      if (data.user?.profilePicture) {
+        setCurrentProfilePicture(data.user.profilePicture);
+        setPreviewUrl(data.user.profilePicture);
         // Update the user context so other parts of the app see the change
-        updateUser({ pfpUrl: data.user.pfpUrl });
+        updateUser({ profilePicture: data.user.profilePicture });
       }
       
       setMessage({ type: 'success', text: 'Profile picture updated!' });
@@ -381,7 +383,7 @@ export default function AccountPage() {
       console.error('Error uploading image:', err);
       setMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
       // Revert preview on error
-      setPreviewUrl(currentPfpUrl);
+      setPreviewUrl(currentProfilePicture);
     } finally {
       setUploading(false);
       // Clean up local preview URL
@@ -405,7 +407,7 @@ export default function AccountPage() {
   };
 
   const handleRemovePhoto = async () => {
-    if (!currentPfpUrl) return;
+    if (!currentProfilePicture) return;
     
     setSaving(true);
     setMessage(null);
@@ -414,7 +416,7 @@ export default function AccountPage() {
       const res = await fetch('/api/user/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pfpUrl: null }),
+        body: JSON.stringify({ profilePicture: null }),
       });
 
       const data = await res.json();
@@ -424,10 +426,12 @@ export default function AccountPage() {
         return;
       }
 
-      setCurrentPfpUrl(null);
-      setPreviewUrl(null);
+      // Fall back to synced pfpUrl if available
+      const fallbackUrl = user?.pfpUrl || null;
+      setCurrentProfilePicture(fallbackUrl);
+      setPreviewUrl(fallbackUrl);
       // Update the user context so other parts of the app see the change
-      updateUser({ pfpUrl: null });
+      updateUser({ profilePicture: null });
       setMessage({ type: 'success', text: 'Profile picture removed!' });
     } catch (err) {
       console.error('Error removing picture:', err);
@@ -438,7 +442,7 @@ export default function AccountPage() {
   };
 
   const handleSaveName = async () => {
-    if (!customDisplayName.trim()) {
+    if (!displayName.trim()) {
       setMessage({ type: 'error', text: 'Name cannot be empty' });
       return;
     }
@@ -450,7 +454,7 @@ export default function AccountPage() {
       const res = await fetch('/api/user/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customDisplayName: customDisplayName.trim() }),
+        body: JSON.stringify({ displayName: displayName.trim() }),
       });
 
       const data = await res.json();
@@ -464,9 +468,9 @@ export default function AccountPage() {
       
       if (data.user) {
         // Update local state
-        setCustomDisplayName(data.user.customDisplayName || '');
+        setDisplayName(data.user.displayName || '');
         // Update the user context so other parts of the app see the change
-        updateUser({ customDisplayName: data.user.customDisplayName });
+        updateUser({ displayName: data.user.displayName });
       }
     } catch (err) {
       console.error('Error updating name:', err);
@@ -522,9 +526,9 @@ export default function AccountPage() {
               {uploading ? (
                 <Spinner />
               ) : previewUrl ? (
-                <AvatarImage src={previewUrl} alt={customDisplayName || 'Profile'} />
+                <AvatarImage src={previewUrl} alt={displayName || 'Profile'} />
               ) : (
-                <AvatarPlaceholder>{getInitials(customDisplayName)}</AvatarPlaceholder>
+                <AvatarPlaceholder>{getInitials(displayName)}</AvatarPlaceholder>
               )}
             </Avatar>
             {!uploading && (
@@ -565,8 +569,8 @@ export default function AccountPage() {
           <FormGroup>
             <Input
               type="text"
-              value={customDisplayName}
-              onChange={(e) => setCustomDisplayName(e.target.value)}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Enter your name"
               maxLength={100}
             />
@@ -574,7 +578,7 @@ export default function AccountPage() {
 
           <SaveButton 
             onClick={handleSaveName} 
-            disabled={saving || uploading || !hasNameChanges() || !customDisplayName.trim()}
+            disabled={saving || uploading || !hasNameChanges() || !displayName.trim()}
             $loading={saving}
           >
             {saving ? 'Saving...' : 'Save Name'}

@@ -8,9 +8,10 @@ export const users = sqliteTable('users', {
   phone: text('phone').unique(), // For direct registration/login
   email: text('email'), // Optional
   username: text('username'),
-  displayName: text('displayName'), // Synced from Farcaster
-  customDisplayName: text('customDisplayName'), // User's custom name for this app
-  pfpUrl: text('pfpUrl'),
+  name: text('name'), // Synced from Farcaster/Renaissance
+  pfpUrl: text('pfpUrl'), // Synced from Farcaster/Renaissance
+  displayName: text('displayName'), // App-specific name (editable)
+  profilePicture: text('profilePicture'), // App-specific profile picture (editable)
   createdAt: integer('createdAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
 });

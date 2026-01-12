@@ -14,8 +14,10 @@ type ResponseData = {
     id: string;
     fid: string | null;
     username: string | null;
-    displayName: string | null;
+    name: string | null;
     pfpUrl: string | null;
+    displayName: string | null;
+    profilePicture: string | null;
   };
   error?: string;
 };
@@ -189,8 +191,8 @@ export default async function handler(
     }
 
     // Delete old profile picture if it exists and is from our storage
-    if (existingUser.pfpUrl) {
-      const oldKey = extractKeyFromUrl(existingUser.pfpUrl);
+    if (existingUser.profilePicture) {
+      const oldKey = extractKeyFromUrl(existingUser.profilePicture);
       if (oldKey && oldKey.startsWith('profile-pictures/')) {
         try {
           await deleteFile(oldKey);
@@ -214,7 +216,7 @@ export default async function handler(
 
     // Update user's profile with new avatar URL
     const updatedUser = await updateUserProfile(userId, {
-      pfpUrl: uploadResult.url,
+      profilePicture: uploadResult.url,
     });
 
     if (!updatedUser) {
@@ -228,8 +230,10 @@ export default async function handler(
         id: updatedUser.id,
         fid: updatedUser.fid ?? null,
         username: updatedUser.username ?? null,
-        displayName: updatedUser.displayName ?? null,
+        name: updatedUser.name ?? null,
         pfpUrl: updatedUser.pfpUrl ?? null,
+        displayName: updatedUser.displayName ?? null,
+        profilePicture: updatedUser.profilePicture ?? null,
       },
     });
   } catch (error) {
