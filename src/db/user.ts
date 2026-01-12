@@ -19,10 +19,15 @@ export interface User {
   profilePicture?: string | null; // App-specific profile picture (editable)
   accountAddress?: string | null; // Wallet address from Renaissance auth
   pinHash?: string | null; // bcrypt hash of 4-digit PIN
-  failedPinAttempts: number; // Failed PIN attempts counter
+  failedPinAttempts: number; // Failed PIN attempts counter (defaults to 0)
   lockedAt?: Date | null; // Timestamp when account was locked
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Helper to get failedPinAttempts, treating null as 0
+function getFailedAttempts(value: number | null | undefined): number {
+  return value ?? 0;
 }
 
 export interface FarcasterAccount {
@@ -64,7 +69,7 @@ export async function getUserByFid(fid: string): Promise<User | null> {
     profilePicture: row.profilePicture,
     accountAddress: row.accountAddress,
     pinHash: row.pinHash,
-    failedPinAttempts: row.failedPinAttempts,
+    failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
     lockedAt: row.lockedAt || null,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
@@ -93,7 +98,7 @@ export async function getUserById(userId: string): Promise<User | null> {
     profilePicture: row.profilePicture,
     accountAddress: row.accountAddress,
     pinHash: row.pinHash,
-    failedPinAttempts: row.failedPinAttempts,
+    failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
     lockedAt: row.lockedAt || null,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
@@ -122,7 +127,7 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
     profilePicture: row.profilePicture,
     accountAddress: row.accountAddress,
     pinHash: row.pinHash,
-    failedPinAttempts: row.failedPinAttempts,
+    failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
     lockedAt: row.lockedAt || null,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
@@ -151,7 +156,7 @@ export async function getUserByUsername(username: string): Promise<User | null> 
     profilePicture: row.profilePicture,
     accountAddress: row.accountAddress,
     pinHash: row.pinHash,
-    failedPinAttempts: row.failedPinAttempts,
+    failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
     lockedAt: row.lockedAt || null,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),

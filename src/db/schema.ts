@@ -14,7 +14,7 @@ export const users = sqliteTable('users', {
   profilePicture: text('profilePicture'), // App-specific profile picture (editable)
   accountAddress: text('accountAddress'), // Wallet address from Renaissance auth
   pinHash: text('pinHash'), // bcrypt hash of 4-digit PIN (nullable for existing/miniapp users)
-  failedPinAttempts: integer('failedPinAttempts').default(0).notNull(), // Failed PIN attempts counter
+  failedPinAttempts: integer('failedPinAttempts').default(0), // Failed PIN attempts counter (default 0)
   lockedAt: integer('lockedAt', { mode: 'timestamp' }), // Timestamp when account was locked (null = not locked)
   createdAt: integer('createdAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),

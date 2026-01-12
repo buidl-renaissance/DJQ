@@ -50,6 +50,20 @@
       "when": 1736726400000,
       "tag": "0006_add_pin_security",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1768249130245,
+      "tag": "0007_useful_hammerhead",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1768249329523,
+      "tag": "0008_sturdy_wild_child",
+      "breakpoints": true
     }
   ]
 }
