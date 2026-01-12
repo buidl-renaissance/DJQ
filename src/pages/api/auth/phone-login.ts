@@ -54,16 +54,17 @@ export default async function handler(
       });
     }
 
-    // Step 1: If no PIN provided, return user status (requires PIN step)
+    // Step 1: If no PIN provided, return user status (requires PIN step or set PIN)
     if (!pin) {
       const userHasPin = hasPin(user);
       
-      // If user doesn't have a PIN (legacy/miniapp user), they need admin help
+      // If user doesn't have a PIN (legacy/miniapp user), prompt them to set one
       if (!userHasPin) {
-        return res.status(403).json({ 
-          error: 'This account does not have a PIN set. Please contact an administrator.',
-          requiresPin: true,
+        return res.status(200).json({ 
+          needsSetPin: true,
           hasPin: false,
+          userId: user.id,
+          displayName: user.displayName || user.username,
         });
       }
 
@@ -71,16 +72,18 @@ export default async function handler(
         requiresPin: true,
         hasPin: true,
         isLocked: false,
-        userId: user.id, // For client to track
+        userId: user.id,
       });
     }
 
     // Step 2: Verify PIN
     if (!hasPin(user)) {
-      return res.status(403).json({ 
-        error: 'This account does not have a PIN set. Please contact an administrator.',
-        requiresPin: true,
+      // User needs to set PIN first
+      return res.status(200).json({ 
+        needsSetPin: true,
         hasPin: false,
+        userId: user.id,
+        displayName: user.displayName || user.username,
       });
     }
 

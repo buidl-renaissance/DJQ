@@ -21,6 +21,7 @@ export interface User {
   pinHash?: string | null; // bcrypt hash of 4-digit PIN
   failedPinAttempts: number; // Failed PIN attempts counter (defaults to 0)
   lockedAt?: Date | null; // Timestamp when account was locked
+  hasPin?: boolean; // Convenience field (derived from pinHash)
   createdAt: Date;
   updatedAt: Date;
 }

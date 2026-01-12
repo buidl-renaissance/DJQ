@@ -238,17 +238,19 @@ const formatPhoneNumber = (value: string): string => {
   return formatted;
 };
 
-type LoginStep = 'phone' | 'pin' | 'locked';
+type LoginStep = 'phone' | 'pin' | 'setPin' | 'locked';
 
 export default function LoginPage() {
   const router = useRouter();
   const { redirect } = router.query;
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<LoginStep>('phone');
   const [normalizedPhone, setNormalizedPhone] = useState('');
+  const [userName, setUserName] = useState('');
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
@@ -259,6 +261,12 @@ export default function LoginPage() {
     // Only allow digits, max 4 characters
     const value = e.target.value.replace(/\D/g, '').slice(0, 4);
     setPin(value);
+  };
+
+  const handleConfirmPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, max 4 characters
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setConfirmPin(value);
   };
 
   // Get the redirect URL or default to dashboard
@@ -297,9 +305,10 @@ export default function LoginPage() {
         return;
       }
 
-      if (res.status === 403) {
-        // User doesn't have a PIN (legacy user)
-        setError(data.error || 'This account requires admin assistance.');
+      if (data.needsSetPin) {
+        // User doesn't have a PIN - prompt them to set one
+        setUserName(data.displayName || '');
+        setStep('setPin');
         setLoading(false);
         return;
       }
@@ -381,9 +390,51 @@ export default function LoginPage() {
     }
   };
 
+  const handleSetPinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (pin !== confirmPin) {
+      setError('PINs do not match');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/set-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizedPhone, pin }),
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to set PIN');
+        setLoading(false);
+        return;
+      }
+
+      // Store user in localStorage so UserContext picks it up on redirect
+      if (data.user) {
+        localStorage.setItem('djq_user', JSON.stringify(data.user));
+      }
+
+      // Success - use hard redirect to ensure fresh UserContext state
+      window.location.href = redirectUrl;
+    } catch (err) {
+      console.error('Set PIN error:', err);
+      setError('Something went wrong. Please try again.');
+      setLoading(false);
+    }
+  };
+
   const handleBack = () => {
     setStep('phone');
     setPin('');
+    setConfirmPin('');
     setError('');
   };
 
@@ -407,6 +458,76 @@ export default function LoginPage() {
                 Try Different Number
               </BackButton>
             </LockedMessage>
+          </FormCard>
+        </Container>
+      </ThemeProvider>
+    );
+  }
+
+  // Set PIN step (for users without a PIN)
+  if (step === 'setPin') {
+    return (
+      <ThemeProvider theme={theme}>
+        <Head>
+          <title>Set PIN | DJQ</title>
+          <meta name="description" content="Set your PIN to secure your account" />
+        </Head>
+        <Container>
+          <FormCard>
+            <Title>Set Your PIN</Title>
+            <Subtitle>
+              {userName ? `Welcome back, ${userName}! ` : ''}
+              Create a 4-digit PIN to secure your account
+            </Subtitle>
+            
+            <Form onSubmit={handleSetPinSubmit}>
+              {error && <ErrorMessage>{error}</ErrorMessage>}
+              
+              <FormGroup>
+                <Label>Phone Number</Label>
+                <PhoneDisplay>{phone}</PhoneDisplay>
+                <BackButton type="button" onClick={handleBack}>
+                  Change Number
+                </BackButton>
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>Create PIN</Label>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  value={pin}
+                  onChange={handlePinChange}
+                  placeholder="••••"
+                  required
+                  maxLength={4}
+                  autoComplete="new-password"
+                  autoFocus
+                />
+              </FormGroup>
+
+              <FormGroup>
+                <Label>Confirm PIN</Label>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  value={confirmPin}
+                  onChange={handleConfirmPinChange}
+                  placeholder="••••"
+                  required
+                  maxLength={4}
+                  autoComplete="new-password"
+                />
+              </FormGroup>
+              
+              <SubmitButton 
+                type="submit" 
+                disabled={loading || pin.length !== 4 || confirmPin.length !== 4} 
+                $loading={loading}
+              >
+                {loading ? 'Setting PIN...' : 'Set PIN & Sign In'}
+              </SubmitButton>
+            </Form>
           </FormCard>
         </Container>
       </ThemeProvider>
