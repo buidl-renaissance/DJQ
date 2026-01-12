@@ -161,7 +161,7 @@ export async function updateUserDisplayName(userId: string, displayName: string)
 
 export interface UpdateUserProfileData {
   displayName?: string;
-  pfpUrl?: string | null;
+  profilePicture?: string | null; // App-specific profile picture (editable)
   phone?: string;
 }
 
@@ -170,13 +170,13 @@ export async function updateUserProfile(userId: string, data: UpdateUserProfileD
   if (!existing) return null;
 
   const now = new Date();
-  const updateData: { displayName?: string; pfpUrl?: string | null; phone?: string; updatedAt: Date } = { updatedAt: now };
+  const updateData: { displayName?: string; profilePicture?: string | null; phone?: string; updatedAt: Date } = { updatedAt: now };
 
   if (data.displayName !== undefined) {
     updateData.displayName = data.displayName;
   }
-  if (data.pfpUrl !== undefined) {
-    updateData.pfpUrl = data.pfpUrl;
+  if (data.profilePicture !== undefined) {
+    updateData.profilePicture = data.profilePicture;
   }
   if (data.phone !== undefined) {
     updateData.phone = data.phone;

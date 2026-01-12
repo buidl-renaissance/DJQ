@@ -15,7 +15,7 @@ type ResponseData = {
     fid: string | null;
     username: string | null;
     displayName: string | null;
-    pfpUrl: string | null;
+    profilePicture: string | null; // App-specific (editable)
   };
   error?: string;
 };
@@ -212,9 +212,9 @@ export default async function handler(
     
     console.log(`📁 Upload result - url: ${uploadResult.url}`);
 
-    // Update user's profile with new avatar URL
+    // Update user's profile with new avatar URL (app-specific profilePicture)
     const updatedUser = await updateUserProfile(userId, {
-      pfpUrl: uploadResult.url,
+      profilePicture: uploadResult.url,
     });
 
     if (!updatedUser) {
@@ -229,7 +229,7 @@ export default async function handler(
         fid: updatedUser.fid ?? null,
         username: updatedUser.username ?? null,
         displayName: updatedUser.displayName ?? null,
-        pfpUrl: updatedUser.pfpUrl ?? null,
+        profilePicture: updatedUser.profilePicture ?? null,
       },
     });
   } catch (error) {

@@ -7,7 +7,7 @@ type ResponseData = {
     fid: string | null;
     username: string | null;
     displayName: string | null;
-    pfpUrl: string | null;
+    profilePicture: string | null; // App-specific (editable)
     phone: string | null;
   };
   error?: string;
@@ -53,10 +53,10 @@ export default async function handler(
     }
 
     // Parse and validate request body
-    const { displayName, pfpUrl, phone } = req.body;
+    const { displayName, profilePicture, phone } = req.body;
 
     // Build update data object
-    const updateData: { displayName?: string; pfpUrl?: string | null; phone?: string } = {};
+    const updateData: { displayName?: string; profilePicture?: string | null; phone?: string } = {};
 
     // Validate displayName if provided
     if (displayName !== undefined) {
@@ -77,25 +77,25 @@ export default async function handler(
       updateData.displayName = trimmedName;
     }
 
-    // Validate pfpUrl if provided
-    if (pfpUrl !== undefined) {
-      if (pfpUrl === null || pfpUrl === '') {
+    // Validate profilePicture if provided (app-specific, editable by user)
+    if (profilePicture !== undefined) {
+      if (profilePicture === null || profilePicture === '') {
         // Allow clearing the profile picture
-        updateData.pfpUrl = null;
-      } else if (typeof pfpUrl !== 'string') {
-        return res.status(400).json({ error: 'pfpUrl must be a string or null' });
+        updateData.profilePicture = null;
+      } else if (typeof profilePicture !== 'string') {
+        return res.status(400).json({ error: 'profilePicture must be a string or null' });
       } else {
-        const trimmedUrl = pfpUrl.trim();
+        const trimmedUrl = profilePicture.trim();
         
         if (trimmedUrl.length > 2000) {
-          return res.status(400).json({ error: 'pfpUrl must be 2000 characters or less' });
+          return res.status(400).json({ error: 'profilePicture must be 2000 characters or less' });
         }
 
         if (!isValidUrl(trimmedUrl)) {
-          return res.status(400).json({ error: 'pfpUrl must be a valid URL' });
+          return res.status(400).json({ error: 'profilePicture must be a valid URL' });
         }
 
-        updateData.pfpUrl = trimmedUrl;
+        updateData.profilePicture = trimmedUrl;
       }
     }
 
@@ -145,7 +145,7 @@ export default async function handler(
         fid: updatedUser.fid ?? null,
         username: updatedUser.username ?? null,
         displayName: updatedUser.displayName ?? null,
-        pfpUrl: updatedUser.pfpUrl ?? null,
+        profilePicture: updatedUser.profilePicture ?? null,
         phone: updatedUser.phone ?? null,
       },
     });
