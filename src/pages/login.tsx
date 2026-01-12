@@ -145,6 +145,61 @@ const ErrorMessage = styled.div`
   color: ${({ theme }) => theme.colors.secondary};
 `;
 
+const LockedMessage = styled.div`
+  background: rgba(255, 45, 149, 0.15);
+  border: 1px solid ${({ theme }) => theme.colors.secondary};
+  border-radius: 6px;
+  padding: 1.25rem;
+  text-align: center;
+`;
+
+const LockedTitle = styled.h3`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 1rem;
+  color: ${({ theme }) => theme.colors.secondary};
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+`;
+
+const LockedText = styled.p`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.85rem;
+  color: ${({ theme }) => theme.colors.contrast};
+  opacity: 0.8;
+  margin-bottom: 1rem;
+`;
+
+const BackButton = styled.button`
+  background: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.darkGray};
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.contrast};
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.accent};
+    color: ${({ theme }) => theme.colors.accent};
+  }
+`;
+
+const PhoneDisplay = styled.div`
+  background: rgba(57, 255, 20, 0.05);
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  border-radius: 6px;
+  padding: 0.875rem 1rem;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 16px;
+  color: ${({ theme }) => theme.colors.accent};
+  margin-bottom: 0.5rem;
+`;
+
 // Format phone number as user types: (XXX) XXX-XXXX or +1 (XXX) XXX-XXXX
 const formatPhoneNumber = (value: string): string => {
   // Strip all non-digit characters except leading +
@@ -183,34 +238,46 @@ const formatPhoneNumber = (value: string): string => {
   return formatted;
 };
 
+type LoginStep = 'phone' | 'pin' | 'locked';
+
 export default function LoginPage() {
   const router = useRouter();
   const { redirect } = router.query;
   const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<LoginStep>('phone');
+  const [normalizedPhone, setNormalizedPhone] = useState('');
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
     setPhone(formatted);
   };
 
+  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, max 4 characters
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setPin(value);
+  };
+
   // Get the redirect URL or default to dashboard
   const redirectUrl = typeof redirect === 'string' ? redirect : '/dashboard';
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     // Normalize phone number
-    const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
+    const normalized = phone.replace(/[\s\-\(\)]/g, '');
+    setNormalizedPhone(normalized);
 
     try {
       const res = await fetch('/api/auth/phone-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone }),
+        body: JSON.stringify({ phone: normalized }),
         credentials: 'include',
       });
 
@@ -218,8 +285,29 @@ export default function LoginPage() {
 
       if (res.status === 404) {
         // Phone not found - redirect to register with phone pre-filled
-        const registerUrl = `/register?phone=${encodeURIComponent(normalizedPhone)}&redirect=${encodeURIComponent(redirectUrl)}`;
+        const registerUrl = `/register?phone=${encodeURIComponent(normalized)}&redirect=${encodeURIComponent(redirectUrl)}`;
         router.push(registerUrl);
+        return;
+      }
+
+      if (res.status === 423) {
+        // Account is locked
+        setStep('locked');
+        setLoading(false);
+        return;
+      }
+
+      if (res.status === 403) {
+        // User doesn't have a PIN (legacy user)
+        setError(data.error || 'This account requires admin assistance.');
+        setLoading(false);
+        return;
+      }
+
+      if (data.requiresPin) {
+        // Move to PIN step
+        setStep('pin');
+        setLoading(false);
         return;
       }
 
@@ -243,6 +331,138 @@ export default function LoginPage() {
     }
   };
 
+  const handlePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/phone-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizedPhone, pin }),
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (res.status === 423) {
+        // Account is locked
+        setStep('locked');
+        setLoading(false);
+        return;
+      }
+
+      if (res.status === 401) {
+        // Invalid PIN
+        setError(data.error || 'Invalid PIN');
+        setPin('');
+        setLoading(false);
+        return;
+      }
+
+      if (!res.ok) {
+        setError(data.error || 'Login failed');
+        setLoading(false);
+        return;
+      }
+
+      // Store user in localStorage so UserContext picks it up on redirect
+      if (data.user) {
+        localStorage.setItem('djq_user', JSON.stringify(data.user));
+      }
+
+      // Success - use hard redirect to ensure fresh UserContext state
+      window.location.href = redirectUrl;
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Something went wrong. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    setStep('phone');
+    setPin('');
+    setError('');
+  };
+
+  // Locked account view
+  if (step === 'locked') {
+    return (
+      <ThemeProvider theme={theme}>
+        <Head>
+          <title>Account Locked | DJQ</title>
+          <meta name="description" content="Account locked" />
+        </Head>
+        <Container>
+          <FormCard>
+            <Title>Account Locked</Title>
+            <LockedMessage>
+              <LockedTitle>Too Many Failed Attempts</LockedTitle>
+              <LockedText>
+                Your account has been locked for security reasons. Please contact an administrator to unlock your account.
+              </LockedText>
+              <BackButton onClick={handleBack}>
+                Try Different Number
+              </BackButton>
+            </LockedMessage>
+          </FormCard>
+        </Container>
+      </ThemeProvider>
+    );
+  }
+
+  // PIN entry step
+  if (step === 'pin') {
+    return (
+      <ThemeProvider theme={theme}>
+        <Head>
+          <title>Enter PIN | DJQ</title>
+          <meta name="description" content="Enter your PIN to sign in" />
+        </Head>
+        <Container>
+          <FormCard>
+            <Title>Enter PIN</Title>
+            <Subtitle>Enter your 4-digit PIN to continue</Subtitle>
+            
+            <Form onSubmit={handlePinSubmit}>
+              {error && <ErrorMessage>{error}</ErrorMessage>}
+              
+              <FormGroup>
+                <Label>Phone Number</Label>
+                <PhoneDisplay>{phone}</PhoneDisplay>
+                <BackButton type="button" onClick={handleBack}>
+                  Change Number
+                </BackButton>
+              </FormGroup>
+              
+              <FormGroup>
+                <Label>PIN</Label>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  value={pin}
+                  onChange={handlePinChange}
+                  placeholder="••••"
+                  required
+                  maxLength={4}
+                  autoComplete="current-password"
+                  autoFocus
+                />
+              </FormGroup>
+              
+              <SubmitButton type="submit" disabled={loading || pin.length !== 4} $loading={loading}>
+                {loading ? 'Signing In...' : 'Sign In'}
+              </SubmitButton>
+            </Form>
+          </FormCard>
+        </Container>
+      </ThemeProvider>
+    );
+  }
+
+  // Phone entry step (default)
   return (
     <ThemeProvider theme={theme}>
       <Head>
@@ -254,7 +474,7 @@ export default function LoginPage() {
           <Title>Sign In</Title>
           <Subtitle>Enter your phone number to continue</Subtitle>
           
-          <Form onSubmit={handleSubmit}>
+          <Form onSubmit={handlePhoneSubmit}>
             {error && <ErrorMessage>{error}</ErrorMessage>}
             
             <FormGroup>

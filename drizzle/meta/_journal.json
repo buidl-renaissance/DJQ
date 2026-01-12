@@ -43,6 +43,13 @@
       "when": 1768190491070,
       "tag": "0005_chemical_the_executioner",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1736726400000,
+      "tag": "0006_add_pin_security",
+      "breakpoints": true
     }
   ]
 }

@@ -215,6 +215,8 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -238,12 +240,27 @@ export default function RegisterPage() {
   // Validate username: only letters, numbers, and underscores
   const isValidUsername = (value: string) => /^[A-Za-z0-9_]+$/.test(value);
 
+  // Validate PIN: exactly 4 digits
+  const isValidPin = (value: string) => /^\d{4}$/.test(value);
+
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Only allow valid characters as they type
     const value = e.target.value;
     // Filter out invalid characters (only allow letters, numbers, underscores)
     const filtered = value.replace(/[^A-Za-z0-9_]/g, '');
     setUsername(filtered);
+  };
+
+  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, max 4 characters
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setPin(value);
+  };
+
+  const handleConfirmPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, max 4 characters
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setConfirmPin(value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -256,13 +273,23 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!isValidPin(pin)) {
+      setError('PIN must be exactly 4 digits');
+      return;
+    }
+
+    if (pin !== confirmPin) {
+      setError('PINs do not match');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, name, phone }),
+        body: JSON.stringify({ username, name, phone, pin }),
         credentials: 'include',
       });
 
@@ -349,8 +376,36 @@ export default function RegisterPage() {
                 autoComplete="name"
               />
             </FormGroup>
+
+            <FormGroup>
+              <Label>4-Digit PIN</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={handlePinChange}
+                placeholder="••••"
+                required
+                maxLength={4}
+                autoComplete="new-password"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Confirm PIN</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                value={confirmPin}
+                onChange={handleConfirmPinChange}
+                placeholder="••••"
+                required
+                maxLength={4}
+                autoComplete="new-password"
+              />
+            </FormGroup>
             
-            <SubmitButton type="submit" disabled={loading} $loading={loading}>
+            <SubmitButton type="submit" disabled={loading || pin.length !== 4 || confirmPin.length !== 4} $loading={loading}>
               {loading ? 'Creating...' : 'Create Account'}
             </SubmitButton>
           </Form>

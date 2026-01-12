@@ -2,9 +2,9 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getUserByPhone, getUserByUsername, createUserWithPhone } from '@/db/user';
 
 /**
- * Register a new user with phone number
+ * Register a new user with phone number and PIN
  * POST /api/auth/register
- * Body: { username, name, phone, email? }
+ * Body: { username, name, phone, pin, email? }
  */
 export default async function handler(
   req: NextApiRequest,
@@ -15,10 +15,11 @@ export default async function handler(
   }
 
   try {
-    const { username, name, phone, email } = req.body as {
+    const { username, name, phone, pin, email } = req.body as {
       username?: string;
       name?: string;
       phone?: string;
+      pin?: string;
       email?: string;
     };
 
@@ -41,6 +42,16 @@ export default async function handler(
       return res.status(400).json({ error: 'Phone number is required' });
     }
 
+    // Validate PIN
+    if (!pin || !pin.trim()) {
+      return res.status(400).json({ error: 'PIN is required' });
+    }
+
+    // PIN must be exactly 4 digits
+    if (!/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: 'PIN must be exactly 4 digits' });
+    }
+
     // Normalize phone number (remove spaces, dashes)
     const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
 
@@ -61,11 +72,12 @@ export default async function handler(
       return res.status(409).json({ error: 'Username already taken' });
     }
 
-    // Create user
+    // Create user with PIN
     const user = await createUserWithPhone({
       username: username.trim(),
       displayName: name.trim(),
       phone: normalizedPhone,
+      pin: pin,
       email: email?.trim() || undefined,
     });
 

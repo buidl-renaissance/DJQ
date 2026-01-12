@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '@/db/drizzle';
 import { users, slotBookings, b2bRequests, events, timeSlots, farcasterAccounts } from '@/db/schema';
-import { getUserById } from '@/db/user';
+import { getUserById, unlockUser } from '@/db/user';
 import { eq, or, inArray } from 'drizzle-orm';
 
 // Admin wallet address (only this user can access admin functions)
@@ -167,6 +167,52 @@ export default async function handler(
     } catch (error) {
       console.error('Error deleting user:', error);
       return res.status(500).json({ error: 'Failed to delete user' });
+    }
+  }
+
+  // PATCH - Unlock user account
+  if (req.method === 'PATCH') {
+    try {
+      const { action } = req.body as { action?: string };
+
+      if (action !== 'unlock') {
+        return res.status(400).json({ error: 'Invalid action. Only "unlock" is supported.' });
+      }
+
+      // Check if target user exists
+      const targetUser = await getUserById(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Check if user is actually locked
+      if (!targetUser.lockedAt) {
+        return res.status(400).json({ error: 'User account is not locked' });
+      }
+
+      // Unlock the user
+      const unlockedUser = await unlockUser(targetUserId);
+
+      if (!unlockedUser) {
+        return res.status(500).json({ error: 'Failed to unlock user' });
+      }
+
+      console.log(`🔓 [ADMIN] User ${targetUserId} unlocked successfully`);
+
+      return res.status(200).json({
+        success: true,
+        message: 'User account unlocked successfully',
+        user: {
+          id: unlockedUser.id,
+          username: unlockedUser.username,
+          displayName: unlockedUser.displayName,
+          lockedAt: unlockedUser.lockedAt,
+          failedPinAttempts: unlockedUser.failedPinAttempts,
+        },
+      });
+    } catch (error) {
+      console.error('Error unlocking user:', error);
+      return res.status(500).json({ error: 'Failed to unlock user' });
     }
   }
 

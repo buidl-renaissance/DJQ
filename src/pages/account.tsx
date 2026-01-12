@@ -317,6 +317,13 @@ export default function AccountPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
 
+  // PIN change state
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmNewPin, setConfirmNewPin] = useState('');
+  const [savingPin, setSavingPin] = useState(false);
+  const [pinMessage, setPinMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Initialize form fields when user loads
   useEffect(() => {
     if (user) {
@@ -502,6 +509,72 @@ export default function AccountPage() {
     return name.charAt(0).toUpperCase();
   };
 
+  const handlePinInputChange = (setter: (value: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, max 4 characters
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setter(value);
+  };
+
+  const handleChangePin = async () => {
+    setPinMessage(null);
+
+    // Validate inputs
+    if (currentPin.length !== 4) {
+      setPinMessage({ type: 'error', text: 'Current PIN must be 4 digits' });
+      return;
+    }
+
+    if (newPin.length !== 4) {
+      setPinMessage({ type: 'error', text: 'New PIN must be 4 digits' });
+      return;
+    }
+
+    if (newPin !== confirmNewPin) {
+      setPinMessage({ type: 'error', text: 'New PINs do not match' });
+      return;
+    }
+
+    setSavingPin(true);
+
+    try {
+      const res = await fetch('/api/user/update-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPin, newPin }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 423) {
+        // Account locked - redirect to login
+        setPinMessage({ type: 'error', text: 'Account locked. Redirecting to login...' });
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+        return;
+      }
+
+      if (!res.ok) {
+        setPinMessage({ type: 'error', text: data.error || 'Failed to update PIN' });
+        return;
+      }
+
+      setPinMessage({ type: 'success', text: 'PIN updated successfully!' });
+      
+      // Clear form
+      setCurrentPin('');
+      setNewPin('');
+      setConfirmNewPin('');
+    } catch (err) {
+      console.error('Error updating PIN:', err);
+      setPinMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
+    } finally {
+      setSavingPin(false);
+    }
+  };
+
+  const canSubmitPinChange = currentPin.length === 4 && newPin.length === 4 && confirmNewPin.length === 4 && newPin === confirmNewPin;
+
   if (isLoading) {
     return (
       <AppLayout title="Account | DJQ">
@@ -599,6 +672,58 @@ export default function AccountPage() {
             $loading={saving}
           >
             {saving ? 'Saving...' : 'Save Name'}
+          </SaveButton>
+        </Card>
+
+        <Card>
+          <CardTitle>Change PIN</CardTitle>
+          
+          {pinMessage && (
+            <Message $type={pinMessage.type}>{pinMessage.text}</Message>
+          )}
+          
+          <FormGroup>
+            <Input
+              type="password"
+              inputMode="numeric"
+              value={currentPin}
+              onChange={handlePinInputChange(setCurrentPin)}
+              placeholder="Current PIN"
+              maxLength={4}
+              autoComplete="current-password"
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <Input
+              type="password"
+              inputMode="numeric"
+              value={newPin}
+              onChange={handlePinInputChange(setNewPin)}
+              placeholder="New PIN"
+              maxLength={4}
+              autoComplete="new-password"
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <Input
+              type="password"
+              inputMode="numeric"
+              value={confirmNewPin}
+              onChange={handlePinInputChange(setConfirmNewPin)}
+              placeholder="Confirm New PIN"
+              maxLength={4}
+              autoComplete="new-password"
+            />
+          </FormGroup>
+
+          <SaveButton 
+            onClick={handleChangePin} 
+            disabled={savingPin || !canSubmitPinChange}
+            $loading={savingPin}
+          >
+            {savingPin ? 'Updating...' : 'Update PIN'}
           </SaveButton>
         </Card>
 

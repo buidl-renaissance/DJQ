@@ -1,7 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import { eq } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 import { db } from './drizzle';
 import { users, farcasterAccounts } from './schema';
+
+const BCRYPT_ROUNDS = 10;
+const MAX_FAILED_ATTEMPTS = 3;
 
 export interface User {
   id: string;
@@ -14,6 +18,9 @@ export interface User {
   displayName?: string | null; // App-specific name (editable)
   profilePicture?: string | null; // App-specific profile picture (editable)
   accountAddress?: string | null; // Wallet address from Renaissance auth
+  pinHash?: string | null; // bcrypt hash of 4-digit PIN
+  failedPinAttempts: number; // Failed PIN attempts counter
+  lockedAt?: Date | null; // Timestamp when account was locked
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +63,9 @@ export async function getUserByFid(fid: string): Promise<User | null> {
     displayName: row.displayName,
     profilePicture: row.profilePicture,
     accountAddress: row.accountAddress,
+    pinHash: row.pinHash,
+    failedPinAttempts: row.failedPinAttempts,
+    lockedAt: row.lockedAt || null,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -82,6 +92,9 @@ export async function getUserById(userId: string): Promise<User | null> {
     displayName: row.displayName,
     profilePicture: row.profilePicture,
     accountAddress: row.accountAddress,
+    pinHash: row.pinHash,
+    failedPinAttempts: row.failedPinAttempts,
+    lockedAt: row.lockedAt || null,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -108,6 +121,9 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
     displayName: row.displayName,
     profilePicture: row.profilePicture,
     accountAddress: row.accountAddress,
+    pinHash: row.pinHash,
+    failedPinAttempts: row.failedPinAttempts,
+    lockedAt: row.lockedAt || null,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -134,6 +150,9 @@ export async function getUserByUsername(username: string): Promise<User | null> 
     displayName: row.displayName,
     profilePicture: row.profilePicture,
     accountAddress: row.accountAddress,
+    pinHash: row.pinHash,
+    failedPinAttempts: row.failedPinAttempts,
+    lockedAt: row.lockedAt || null,
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -198,11 +217,15 @@ export interface CreateUserWithPhoneData {
   displayName: string; // name
   phone: string;
   email?: string;
+  pin: string; // 4-digit PIN (will be hashed before storage)
 }
 
 export async function createUserWithPhone(data: CreateUserWithPhoneData): Promise<User> {
   const id = uuidv4();
   const now = new Date();
+  
+  // Hash the PIN before storing
+  const pinHash = await bcrypt.hash(data.pin, BCRYPT_ROUNDS);
   
   const newUser = {
     id,
@@ -212,13 +235,19 @@ export async function createUserWithPhone(data: CreateUserWithPhoneData): Promis
     username: data.username,
     displayName: data.displayName,
     pfpUrl: null,
+    pinHash,
+    failedPinAttempts: 0,
+    lockedAt: null,
     createdAt: now,
     updatedAt: now,
   };
   
   await db.insert(users).values(newUser);
   
-  return newUser as User;
+  return {
+    ...newUser,
+    lockedAt: null,
+  } as User;
 }
 
 export async function getOrCreateUserByFid(
@@ -351,4 +380,177 @@ export async function getFarcasterAccountByFid(
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as FarcasterAccount;
+}
+
+// ============== PIN Security Functions ==============
+
+/**
+ * Check if a user account is currently locked
+ */
+export function isUserLocked(user: User): boolean {
+  return user.lockedAt !== null && user.lockedAt !== undefined;
+}
+
+/**
+ * Check if a user has a PIN set
+ */
+export function hasPin(user: User): boolean {
+  return user.pinHash !== null && user.pinHash !== undefined;
+}
+
+/**
+ * Verify a user's PIN
+ * Returns true if PIN is correct, false otherwise
+ */
+export async function verifyUserPin(user: User, pin: string): Promise<boolean> {
+  if (!user.pinHash) return false;
+  return bcrypt.compare(pin, user.pinHash);
+}
+
+/**
+ * Increment failed PIN attempts for a user
+ * Returns the updated user and whether the account was locked
+ */
+export async function incrementFailedAttempts(userId: string): Promise<{ user: User; wasLocked: boolean }> {
+  const existing = await getUserById(userId);
+  if (!existing) throw new Error('User not found');
+
+  const now = new Date();
+  const newAttempts = existing.failedPinAttempts + 1;
+  const shouldLock = newAttempts >= MAX_FAILED_ATTEMPTS;
+
+  await db
+    .update(users)
+    .set({
+      failedPinAttempts: newAttempts,
+      lockedAt: shouldLock ? now : existing.lockedAt,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+
+  return {
+    user: {
+      ...existing,
+      failedPinAttempts: newAttempts,
+      lockedAt: shouldLock ? now : existing.lockedAt,
+      updatedAt: now,
+    },
+    wasLocked: shouldLock,
+  };
+}
+
+/**
+ * Reset failed PIN attempts (called on successful login)
+ */
+export async function resetFailedAttempts(userId: string): Promise<void> {
+  const now = new Date();
+  await db
+    .update(users)
+    .set({
+      failedPinAttempts: 0,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+}
+
+/**
+ * Lock a user account
+ */
+export async function lockUser(userId: string): Promise<User | null> {
+  const existing = await getUserById(userId);
+  if (!existing) return null;
+
+  const now = new Date();
+  await db
+    .update(users)
+    .set({
+      lockedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+
+  return {
+    ...existing,
+    lockedAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Unlock a user account (admin function)
+ * Also resets failed PIN attempts
+ */
+export async function unlockUser(userId: string): Promise<User | null> {
+  const existing = await getUserById(userId);
+  if (!existing) return null;
+
+  const now = new Date();
+  await db
+    .update(users)
+    .set({
+      lockedAt: null,
+      failedPinAttempts: 0,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+
+  return {
+    ...existing,
+    lockedAt: null,
+    failedPinAttempts: 0,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Set a user's PIN (for users who don't have one yet)
+ */
+export async function setUserPin(userId: string, pin: string): Promise<User | null> {
+  const existing = await getUserById(userId);
+  if (!existing) return null;
+
+  const now = new Date();
+  const pinHash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
+
+  await db
+    .update(users)
+    .set({
+      pinHash,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+
+  return {
+    ...existing,
+    pinHash,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Update a user's PIN (requires verification of current PIN first)
+ * This should be called after verifyUserPin succeeds
+ */
+export async function updateUserPin(userId: string, newPin: string): Promise<User | null> {
+  const existing = await getUserById(userId);
+  if (!existing) return null;
+
+  const now = new Date();
+  const pinHash = await bcrypt.hash(newPin, BCRYPT_ROUNDS);
+
+  await db
+    .update(users)
+    .set({
+      pinHash,
+      failedPinAttempts: 0, // Reset failed attempts on successful PIN change
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+
+  return {
+    ...existing,
+    pinHash,
+    failedPinAttempts: 0,
+    updatedAt: now,
+  };
 }

@@ -184,6 +184,56 @@ const DeleteButton = styled.button<{ $loading?: boolean }>`
   }
 `;
 
+const UnlockButton = styled.button<{ $loading?: boolean }>`
+  background: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.accent};
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.7rem;
+  color: ${({ theme }) => theme.colors.accent};
+  text-transform: uppercase;
+  cursor: ${({ $loading }) => $loading ? 'wait' : 'pointer'};
+  transition: all 0.2s;
+  white-space: nowrap;
+  
+  &:hover:not(:disabled) {
+    background: rgba(57, 255, 20, 0.1);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const LockedBadge = styled.span`
+  background: ${({ theme }) => theme.colors.secondary};
+  color: ${({ theme }) => theme.colors.background};
+  font-size: 0.6rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  font-family: ${({ theme }) => theme.fonts.heading};
+`;
+
+const NoPinBadge = styled.span`
+  background: ${({ theme }) => theme.colors.darkGray};
+  color: ${({ theme }) => theme.colors.contrast};
+  font-size: 0.6rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  font-family: ${({ theme }) => theme.fonts.heading};
+`;
+
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
 const Message = styled.div<{ $type: 'success' | 'error' }>`
   background: ${({ $type }) => 
     $type === 'success' 
@@ -232,6 +282,9 @@ interface UserData {
   createdAt: string;
   bookingsCount: number;
   eventsCount: number;
+  lockedAt: string | null;
+  failedPinAttempts: number;
+  hasPin: boolean;
 }
 
 export default function AdminPage() {
@@ -239,6 +292,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const isAdmin = user?.accountAddress?.toLowerCase() === ADMIN_ADDRESS.toLowerCase();
@@ -293,6 +347,40 @@ export default function AdminPage() {
       setMessage({ type: 'error', text: 'Something went wrong' });
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleUnlock = async (targetUser: UserData) => {
+    setUnlocking(targetUser.id);
+    setMessage(null);
+
+    try {
+      const res = await fetch(`/api/admin/users/${targetUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unlock' }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage({ type: 'error', text: data.error || 'Failed to unlock user' });
+        return;
+      }
+
+      setMessage({ type: 'success', text: `User "${targetUser.displayName || targetUser.username}" unlocked successfully` });
+      
+      // Update user in list
+      setUsers(prev => prev.map(u => 
+        u.id === targetUser.id 
+          ? { ...u, lockedAt: null, failedPinAttempts: 0 }
+          : u
+      ));
+    } catch (err) {
+      console.error('Error unlocking user:', err);
+      setMessage({ type: 'error', text: 'Something went wrong' });
+    } finally {
+      setUnlocking(null);
     }
   };
 
@@ -364,6 +452,7 @@ export default function AdminPage() {
           <UserList>
             {users.map((u) => {
               const isUserAdmin = u.accountAddress?.toLowerCase() === ADMIN_ADDRESS.toLowerCase();
+              const isLocked = !!u.lockedAt;
               
               return (
                 <UserCard key={u.id}>
@@ -372,11 +461,14 @@ export default function AdminPage() {
                       {u.displayName || u.username || 'No name'}
                       {u.username && ` (@${u.username})`}
                       {isUserAdmin && <AdminBadge>Admin</AdminBadge>}
+                      {isLocked && <LockedBadge>Locked</LockedBadge>}
+                      {!u.hasPin && !isUserAdmin && <NoPinBadge>No PIN</NoPinBadge>}
                     </Username>
                     <UserDetails>
                       <span>📅 {u.bookingsCount} bookings</span>
                       <span>🎉 {u.eventsCount} events</span>
                       {u.phone && <span>📱 {u.phone}</span>}
+                      {u.failedPinAttempts > 0 && <span>⚠️ {u.failedPinAttempts} failed attempts</span>}
                     </UserDetails>
                     <UserMeta>
                       ID: {u.id.slice(0, 8)}... • Joined {formatDate(u.createdAt)}
@@ -386,13 +478,24 @@ export default function AdminPage() {
                   </UserInfo>
                   
                   {!isUserAdmin && (
-                    <DeleteButton
-                      onClick={() => handleDelete(u)}
-                      disabled={deleting === u.id}
-                      $loading={deleting === u.id}
-                    >
-                      {deleting === u.id ? 'Deleting...' : 'Delete'}
-                    </DeleteButton>
+                    <ButtonGroup>
+                      {isLocked && (
+                        <UnlockButton
+                          onClick={() => handleUnlock(u)}
+                          disabled={unlocking === u.id}
+                          $loading={unlocking === u.id}
+                        >
+                          {unlocking === u.id ? 'Unlocking...' : 'Unlock'}
+                        </UnlockButton>
+                      )}
+                      <DeleteButton
+                        onClick={() => handleDelete(u)}
+                        disabled={deleting === u.id}
+                        $loading={deleting === u.id}
+                      >
+                        {deleting === u.id ? 'Deleting...' : 'Delete'}
+                      </DeleteButton>
+                    </ButtonGroup>
                   )}
                 </UserCard>
               );

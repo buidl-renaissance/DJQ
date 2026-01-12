@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '@/db/drizzle';
-import { users, slotBookings, b2bRequests, events, farcasterAccounts } from '@/db/schema';
+import { users, slotBookings, events } from '@/db/schema';
 import { getUserById } from '@/db/user';
 import { eq, desc } from 'drizzle-orm';
 
@@ -70,6 +70,9 @@ export default async function handler(
             createdAt: user.createdAt,
             bookingsCount: bookings.length,
             eventsCount: hostedEvents.length,
+            lockedAt: user.lockedAt,
+            failedPinAttempts: user.failedPinAttempts,
+            hasPin: !!user.pinHash,
           };
         })
       );

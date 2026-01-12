@@ -373,7 +373,7 @@ export default function EventDetailPage() {
     }
 
     fetchEvent();
-  }, [id, user?.id]);
+  }, [id, user]);
 
   // Handle slot click
   const handleSlotClickWithCount = (slotId: string) => {
