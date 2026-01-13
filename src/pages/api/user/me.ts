@@ -10,6 +10,8 @@ type ResponseData = {
     username: string | null;
     displayName: string | null;
     pfpUrl: string | null;
+    phone: string | null;
+    accountAddress: string | null;
     hasPin?: boolean;
   } | null;
 };
@@ -118,6 +120,8 @@ export default async function handler(
         username: user.username ?? null,
         displayName: user.displayName ?? null,
         pfpUrl: user.pfpUrl ?? null,
+        phone: user.phone ?? null,
+        accountAddress: user.accountAddress ?? null,
         hasPin: !!(user.pinHash),
       },
     });
