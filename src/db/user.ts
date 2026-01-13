@@ -316,40 +316,40 @@ export async function getUserByAccountAddressOnly(
   console.log('🔍 [USER LOOKUP] Found user by accountAddress:', accountAddress);
   
   // Update user if new data is provided - sync Renaissance data
-  if (userData) {
-    const now = new Date();
-    const updateData: {
+    if (userData) {
+      const now = new Date();
+      const updateData: {
       fid?: string | null;
-      username?: string | null;
-      name?: string | null;
-      pfpUrl?: string | null;
-      updatedAt: Date;
-    } = { updatedAt: now };
-    
+        username?: string | null;
+        name?: string | null;
+        pfpUrl?: string | null;
+        updatedAt: Date;
+      } = { updatedAt: now };
+      
     // Sync username, name, pfpUrl from Renaissance
-    // displayName and profilePicture are app-specific and won't be affected
+      // displayName and profilePicture are app-specific and won't be affected
     if (userData.fid) updateData.fid = userData.fid;
-    if (userData.username !== undefined) updateData.username = userData.username;
-    if (userData.name !== undefined) updateData.name = userData.name;
-    if (userData.pfpUrl !== undefined) updateData.pfpUrl = userData.pfpUrl;
+      if (userData.username !== undefined) updateData.username = userData.username;
+      if (userData.name !== undefined) updateData.name = userData.name;
+      if (userData.pfpUrl !== undefined) updateData.pfpUrl = userData.pfpUrl;
+      
+      await db
+        .update(users)
+        .set(updateData)
+        .where(eq(users.id, existing.id));
+      
+      return {
+        user: {
+          ...existing,
+          ...updateData,
+        } as User,
+        isNewUser: false,
+      };
+    }
     
-    await db
-      .update(users)
-      .set(updateData)
-      .where(eq(users.id, existing.id));
-    
-    return {
-      user: {
-        ...existing,
-        ...updateData,
-      } as User,
-      isNewUser: false,
-    };
+    return { user: existing, isNewUser: false };
   }
   
-  return { user: existing, isNewUser: false };
-}
-
 /**
  * Link an accountAddress to an existing user (found by phone)
  * Called after user enters phone number and is found/created

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getUserByAccountAddressOnly, upsertFarcasterAccount } from '@/db/user';
+import { getUserByAccountAddressOnly, getUserById, upsertFarcasterAccount } from '@/db/user';
 
 /**
  * Authenticate user from Renaissance Mini App SDK context
@@ -31,16 +31,51 @@ export default async function handler(
       renaissanceUserId, 
       accountAddress: accountAddress || '(not provided)',
     });
-    console.log('🔐 [MINIAPP AUTH] Full request body:', JSON.stringify(req.body, null, 2));
 
-    // accountAddress is required for Renaissance app authentication
+    // If no accountAddress provided, check if user has an existing valid session
+    // This handles cases where SDK context isn't ready yet but user is already logged in
     if (!accountAddress) {
-      console.log('⚠️ [MINIAPP AUTH] No accountAddress provided');
+      console.log('⚠️ [MINIAPP AUTH] No accountAddress provided, checking existing session...');
+      
+      const cookies = req.headers.cookie || '';
+      const sessionMatch = cookies.match(/user_session=([^;]+)/);
+      
+      if (sessionMatch && sessionMatch[1]) {
+        const sessionUserId = sessionMatch[1];
+        const existingUser = await getUserById(sessionUserId);
+        
+        if (existingUser) {
+          console.log('✅ [MINIAPP AUTH] Found existing session user:', {
+            userId: existingUser.id,
+            accountAddress: existingUser.accountAddress,
+            hasPhone: !!existingUser.phone,
+          });
+          
+          // Return existing user - they're already authenticated
+          return res.status(200).json({
+            success: true,
+            needsPhone: !existingUser.phone,
+            user: {
+              id: existingUser.id,
+              fid: existingUser.fid,
+              username: existingUser.username,
+              phone: existingUser.phone,
+              name: existingUser.name,
+              pfpUrl: existingUser.pfpUrl,
+              displayName: existingUser.displayName,
+              profilePicture: existingUser.profilePicture,
+              accountAddress: existingUser.accountAddress,
+            },
+          });
+        }
+      }
+      
+      // No session and no accountAddress - need phone
+      console.log('⚠️ [MINIAPP AUTH] No session found, requiring phone');
       return res.status(200).json({
         success: false,
         needsPhone: true,
         message: 'No wallet address found. Please enter your phone number.',
-        // Pass along the Renaissance data for later linking
         pendingUserData: {
           fid,
           username,
