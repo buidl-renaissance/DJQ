@@ -349,6 +349,58 @@ export async function getUserByAccountAddressOnly(
     
     return { user: existing, isNewUser: false };
   }
+
+/**
+ * Look up a user by username only (for Renaissance app users)
+ * Returns null if no user found - caller should prompt for phone number
+ */
+export async function getUserByUsernameOnly(
+  username: string,
+  userData?: FarcasterUserData
+): Promise<{ user: User; isNewUser: false } | null> {
+  const existing = await getUserByUsername(username);
+  
+  if (!existing) {
+    console.log('🔍 [USER LOOKUP] No user found for username:', username);
+    return null;
+  }
+  
+  console.log('🔍 [USER LOOKUP] Found user by username:', username);
+  
+  // Update user if new data is provided - sync Renaissance data
+  if (userData) {
+    const now = new Date();
+    const updateData: {
+      fid?: string | null;
+      name?: string | null;
+      pfpUrl?: string | null;
+      accountAddress?: string | null;
+      updatedAt: Date;
+    } = { updatedAt: now };
+    
+    // Sync fid, name, pfpUrl, accountAddress from Renaissance
+    // displayName and profilePicture are app-specific and won't be affected
+    if (userData.fid) updateData.fid = userData.fid;
+    if (userData.name !== undefined) updateData.name = userData.name;
+    if (userData.pfpUrl !== undefined) updateData.pfpUrl = userData.pfpUrl;
+    if (userData.accountAddress !== undefined) updateData.accountAddress = userData.accountAddress;
+    
+    await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, existing.id));
+    
+    return {
+      user: {
+        ...existing,
+        ...updateData,
+      } as User,
+      isNewUser: false,
+    };
+  }
+  
+  return { user: existing, isNewUser: false };
+}
   
 /**
  * Link an accountAddress to an existing user (found by phone)

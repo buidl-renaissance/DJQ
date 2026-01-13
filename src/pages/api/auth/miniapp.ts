@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getUserByAccountAddressOnly, getUserById, upsertFarcasterAccount } from '@/db/user';
+import { getUserByUsernameOnly, getUserById, upsertFarcasterAccount } from '@/db/user';
 
 /**
  * Authenticate user from Renaissance Mini App SDK context
- * Uses accountAddress (wallet address) as the primary identifier
- * If user not found by accountAddress, requires phone number entry
+ * Uses username as the primary identifier
+ * If user not found by username, requires phone number entry
  */
 export default async function handler(
   req: NextApiRequest,
@@ -21,7 +21,7 @@ export default async function handler(
       displayName?: string;
       pfpUrl?: string;
       renaissanceUserId?: string;
-      accountAddress?: string; // Wallet address - primary identifier
+      accountAddress?: string; // Wallet address (synced from SDK)
     };
 
     console.log('🔐 [MINIAPP AUTH] Authenticating mini app user:', { 
@@ -32,10 +32,10 @@ export default async function handler(
       accountAddress: accountAddress || '(not provided)',
     });
 
-    // If no accountAddress provided, check if user has an existing valid session
+    // If no username provided, check if user has an existing valid session
     // This handles cases where SDK context isn't ready yet but user is already logged in
-    if (!accountAddress) {
-      console.log('⚠️ [MINIAPP AUTH] No accountAddress provided, checking existing session...');
+    if (!username) {
+      console.log('⚠️ [MINIAPP AUTH] No username provided, checking existing session...');
       
       const cookies = req.headers.cookie || '';
       const sessionMatch = cookies.match(/user_session=([^;]+)/);
@@ -70,12 +70,12 @@ export default async function handler(
         }
       }
       
-      // No session and no accountAddress - need phone
+      // No session and no username - need phone
       console.log('⚠️ [MINIAPP AUTH] No session found, requiring phone');
       return res.status(200).json({
         success: false,
         needsPhone: true,
-        message: 'No wallet address found. Please enter your phone number.',
+        message: 'No username found. Please enter your phone number.',
         pendingUserData: {
           fid,
           username,
@@ -85,18 +85,18 @@ export default async function handler(
       });
     }
 
-    // Look up user by accountAddress only
-    const result = await getUserByAccountAddressOnly(accountAddress, {
+    // Look up user by username only
+    const result = await getUserByUsernameOnly(username, {
       fid: fid || '',
       username: username || undefined,
       name: displayName || undefined,
       pfpUrl: pfpUrl || undefined,
-      accountAddress,
+      accountAddress: accountAddress || undefined,
     });
 
     if (!result) {
-      // No user found with this accountAddress - require phone verification
-      console.log('🔐 [MINIAPP AUTH] No user found for accountAddress, requiring phone:', accountAddress);
+      // No user found with this username - require phone verification
+      console.log('🔐 [MINIAPP AUTH] No user found for username, requiring phone:', username);
       return res.status(200).json({
         success: false,
         needsPhone: true,
@@ -127,8 +127,8 @@ export default async function handler(
 
     console.log('✅ [MINIAPP AUTH] User authenticated successfully:', {
       userId: user.id,
-      accountAddress: user.accountAddress,
       username: user.username,
+      accountAddress: user.accountAddress,
     });
 
     return res.status(200).json({
