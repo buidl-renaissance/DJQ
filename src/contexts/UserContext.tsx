@@ -139,6 +139,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = await response.json();
         if (data.user) {
           setUser(data.user);
+          // Update needsPhone based on refreshed user data
+          setNeedsPhone(!data.user.phone);
         }
       }
     } catch (err) {
@@ -218,10 +220,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(authData.user);
           setError(null);
           
-          // Check if user needs to add phone number
+          // Set needsPhone based on whether user has a phone
           if (authData.needsPhone) {
             console.log('📱 User needs to add phone number');
             setNeedsPhone(true);
+          } else {
+            // IMPORTANT: Explicitly set to false when user HAS a phone
+            setNeedsPhone(false);
           }
           
           return true;
