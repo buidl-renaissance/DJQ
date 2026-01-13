@@ -460,8 +460,8 @@ export default function ManageEventPage() {
     
     const eventUrl = `${getBaseUrl()}/events/${event.id}`;
     const result = await share({
-      title: event.title,
-      text: `Check out this event: ${event.title}`,
+      title: `Open Decks: ${event.title}`,
+      text: `Join the open decks at ${event.title}! Sign up for a slot and spin some tunes 🎧`,
       url: eventUrl,
     });
 
