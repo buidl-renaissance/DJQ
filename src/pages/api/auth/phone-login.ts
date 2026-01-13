@@ -5,8 +5,17 @@ import {
   hasPin, 
   verifyUserPin, 
   incrementFailedAttempts, 
-  resetFailedAttempts 
+  resetFailedAttempts,
+  linkAccountAddressToUser,
 } from '@/db/user';
+
+interface PendingUserData {
+  fid?: string;
+  username?: string;
+  displayName?: string;
+  pfpUrl?: string;
+  accountAddress?: string;
+}
 
 /**
  * Login with phone number and PIN
@@ -19,6 +28,8 @@ import {
  *   - Verifies PIN and logs in user
  *   - Returns error if PIN is wrong (increments failed attempts)
  *   - Returns locked error if account is locked after 3 failed attempts
+ * 
+ * If pendingUserData is provided (from Renaissance app), links accountAddress to user
  */
 export default async function handler(
   req: NextApiRequest,
@@ -29,7 +40,11 @@ export default async function handler(
   }
 
   try {
-    const { phone, pin } = req.body as { phone?: string; pin?: string };
+    const { phone, pin, pendingUserData } = req.body as { 
+      phone?: string; 
+      pin?: string;
+      pendingUserData?: PendingUserData;
+    };
 
     // Validate required fields
     if (!phone || !phone.trim()) {
@@ -120,25 +135,46 @@ export default async function handler(
     // PIN is valid - reset failed attempts and log in
     await resetFailedAttempts(user.id);
 
+    // Link accountAddress if pendingUserData is provided (from Renaissance app)
+    let updatedUser = user;
+    if (pendingUserData?.accountAddress) {
+      console.log('🔗 [PHONE LOGIN] Linking accountAddress to user:', {
+        userId: user.id,
+        accountAddress: pendingUserData.accountAddress,
+      });
+      const linked = await linkAccountAddressToUser(user.id, pendingUserData.accountAddress, {
+        fid: pendingUserData.fid || '',
+        username: pendingUserData.username,
+        name: pendingUserData.displayName,
+        pfpUrl: pendingUserData.pfpUrl,
+        accountAddress: pendingUserData.accountAddress,
+      });
+      if (linked) {
+        updatedUser = linked;
+      }
+    }
+
     // Set session cookie
     res.setHeader('Set-Cookie', `user_session=${user.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
 
     console.log('✅ [PHONE LOGIN] User logged in successfully:', {
-      userId: user.id,
-      username: user.username,
-      phone: user.phone,
+      userId: updatedUser.id,
+      username: updatedUser.username,
+      phone: updatedUser.phone,
+      accountAddress: updatedUser.accountAddress,
     });
 
     return res.status(200).json({
       success: true,
       user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        phone: user.phone,
-        email: user.email,
-        fid: user.fid,
-        pfpUrl: user.pfpUrl,
+        id: updatedUser.id,
+        username: updatedUser.username,
+        displayName: updatedUser.displayName,
+        phone: updatedUser.phone,
+        email: updatedUser.email,
+        fid: updatedUser.fid,
+        pfpUrl: updatedUser.pfpUrl,
+        accountAddress: updatedUser.accountAddress,
       },
     });
   } catch (error) {

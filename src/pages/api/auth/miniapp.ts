@@ -1,9 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getOrCreateUserByFid, upsertFarcasterAccount } from '@/db/user';
+import { getUserByAccountAddressOnly, upsertFarcasterAccount } from '@/db/user';
 
 /**
- * Authenticate user from Farcaster Mini App SDK context
- * This endpoint receives user data from the SDK's context.user and creates/updates the user
+ * Authenticate user from Renaissance Mini App SDK context
+ * Uses accountAddress (wallet address) as the primary identifier
+ * If user not found by accountAddress, requires phone number entry
  */
 export default async function handler(
   req: NextApiRequest,
@@ -14,19 +15,14 @@ export default async function handler(
   }
 
   try {
-    // displayName from Farcaster SDK will be stored as 'name' (synced field)
     const { fid, username, displayName, pfpUrl, renaissanceUserId, accountAddress } = req.body as {
       fid?: string;
       username?: string;
-      displayName?: string; // From Farcaster, stored as 'name'
+      displayName?: string;
       pfpUrl?: string;
       renaissanceUserId?: string;
-      accountAddress?: string; // Wallet address from Renaissance auth
+      accountAddress?: string; // Wallet address - primary identifier
     };
-
-    if (!fid) {
-      return res.status(400).json({ error: 'fid is required' });
-    }
 
     console.log('🔐 [MINIAPP AUTH] Authenticating mini app user:', { 
       fid, 
@@ -35,25 +31,56 @@ export default async function handler(
       renaissanceUserId, 
       accountAddress: accountAddress || '(not provided)',
     });
-    console.log('🔐 [MINIAPP AUTH] Request headers:', {
-      origin: req.headers.origin,
-      referer: req.headers.referer,
-      'user-agent': req.headers['user-agent']?.substring(0, 50),
-    });
     console.log('🔐 [MINIAPP AUTH] Full request body:', JSON.stringify(req.body, null, 2));
 
-    // Get or create user in database
-    // Farcaster's displayName is stored as 'name' (synced from parent app)
-    const { user, isNewUser } = await getOrCreateUserByFid(fid, {
-      fid,
+    // accountAddress is required for Renaissance app authentication
+    if (!accountAddress) {
+      console.log('⚠️ [MINIAPP AUTH] No accountAddress provided');
+      return res.status(200).json({
+        success: false,
+        needsPhone: true,
+        message: 'No wallet address found. Please enter your phone number.',
+        // Pass along the Renaissance data for later linking
+        pendingUserData: {
+          fid,
+          username,
+          displayName,
+          pfpUrl,
+        },
+      });
+    }
+
+    // Look up user by accountAddress only
+    const result = await getUserByAccountAddressOnly(accountAddress, {
+      fid: fid || '',
       username: username || undefined,
-      name: displayName || undefined, // Store Farcaster displayName as 'name'
+      name: displayName || undefined,
       pfpUrl: pfpUrl || undefined,
-      accountAddress: accountAddress || undefined, // Store wallet address from Renaissance
+      accountAddress,
     });
 
-    // Link/update Farcaster account
-    if (username) {
+    if (!result) {
+      // No user found with this accountAddress - require phone verification
+      console.log('🔐 [MINIAPP AUTH] No user found for accountAddress, requiring phone:', accountAddress);
+      return res.status(200).json({
+        success: false,
+        needsPhone: true,
+        message: 'Please enter your phone number to continue.',
+        // Pass along the Renaissance data for later linking
+        pendingUserData: {
+          fid,
+          username,
+          displayName,
+          pfpUrl,
+          accountAddress,
+        },
+      });
+    }
+
+    const { user } = result;
+
+    // Link/update Farcaster account if username provided
+    if (username && fid) {
       await upsertFarcasterAccount(user.id, {
         fid,
         username,
@@ -61,32 +88,27 @@ export default async function handler(
     }
 
     // Set session cookie
-    res.setHeader('Set-Cookie', `user_session=${user.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`); // 24 hours
+    res.setHeader('Set-Cookie', `user_session=${user.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
 
     console.log('✅ [MINIAPP AUTH] User authenticated successfully:', {
       userId: user.id,
-      fid: user.fid,
+      accountAddress: user.accountAddress,
       username: user.username,
-      isNewUser,
     });
-
-    // Check if user needs to add phone number (new users or existing users without phone)
-    const needsPhone = !user.phone;
 
     return res.status(200).json({
       success: true,
-      isNewUser,
-      needsPhone,
+      needsPhone: !user.phone, // Still prompt to add phone if missing
       user: {
         id: user.id,
         fid: user.fid,
         username: user.username,
         phone: user.phone,
-        name: user.name, // Synced from Farcaster
-        pfpUrl: user.pfpUrl, // Synced from Farcaster
-        displayName: user.displayName, // App-specific (editable)
-        profilePicture: user.profilePicture, // App-specific (editable)
-        accountAddress: user.accountAddress, // From Renaissance auth
+        name: user.name,
+        pfpUrl: user.pfpUrl,
+        displayName: user.displayName,
+        profilePicture: user.profilePicture,
+        accountAddress: user.accountAddress,
       },
     });
   } catch (error) {

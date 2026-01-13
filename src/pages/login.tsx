@@ -272,6 +272,24 @@ export default function LoginPage() {
   // Get the redirect URL or default to dashboard
   const redirectUrl = typeof redirect === 'string' ? redirect : '/dashboard';
 
+  // Get pending user data from localStorage (set by Renaissance app auth)
+  const getPendingUserData = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const data = localStorage.getItem('djq_pending_user_data');
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Clear pending user data after successful auth
+  const clearPendingUserData = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('djq_pending_user_data');
+    }
+  };
+
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -282,10 +300,11 @@ export default function LoginPage() {
     setNormalizedPhone(normalized);
 
     try {
+      const pendingUserData = getPendingUserData();
       const res = await fetch('/api/auth/phone-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalized }),
+        body: JSON.stringify({ phone: normalized, pendingUserData }),
         credentials: 'include',
       });
 
@@ -346,10 +365,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const pendingUserData = getPendingUserData();
       const res = await fetch('/api/auth/phone-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone, pin }),
+        body: JSON.stringify({ phone: normalizedPhone, pin, pendingUserData }),
         credentials: 'include',
       });
 
@@ -376,7 +396,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Store user in localStorage so UserContext picks it up on redirect
+      // Clear pending data and store user
+      clearPendingUserData();
       if (data.user) {
         localStorage.setItem('djq_user', JSON.stringify(data.user));
       }
@@ -402,10 +423,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const pendingUserData = getPendingUserData();
       const res = await fetch('/api/auth/set-pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone, pin }),
+        body: JSON.stringify({ phone: normalizedPhone, pin, pendingUserData }),
         credentials: 'include',
       });
 
@@ -417,7 +439,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Store user in localStorage so UserContext picks it up on redirect
+      // Clear pending data and store user
+      clearPendingUserData();
       if (data.user) {
         localStorage.setItem('djq_user', JSON.stringify(data.user));
       }

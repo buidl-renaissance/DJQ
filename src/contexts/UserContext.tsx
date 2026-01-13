@@ -169,6 +169,26 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         account_address: sdkUser.account_address,
       });
       
+      // Check if cached user has a different accountAddress - if so, clear the cache
+      if (typeof window !== 'undefined') {
+        try {
+          const cachedUser = localStorage.getItem('djq_user');
+          if (cachedUser) {
+            const parsed = JSON.parse(cachedUser);
+            if (accountAddress && parsed.accountAddress && parsed.accountAddress !== accountAddress) {
+              console.log('🧹 [AUTH] Different accountAddress detected, clearing cached user:', {
+                cached: parsed.accountAddress,
+                incoming: accountAddress,
+              });
+              localStorage.removeItem('djq_user');
+              setUser(null);
+            }
+          }
+        } catch (e) {
+          console.log('⚠️ [AUTH] Error checking cached user:', e);
+        }
+      }
+      
       const normalizedData = {
         fid: String(sdkUser.fid),
         username: sdkUser.username,
@@ -192,7 +212,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (authResponse.ok) {
         const authData = await authResponse.json();
         console.log('Auth response data:', authData);
-        if (authData.user) {
+        
+        if (authData.success && authData.user) {
           console.log('✅ User authenticated successfully:', authData.user);
           setUser(authData.user);
           setError(null);
@@ -204,8 +225,28 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           
           return true;
+        } else if (authData.needsPhone && authData.pendingUserData) {
+          // User not found by accountAddress - need to enter phone
+          console.log('📱 User not found, needs phone verification. Pending data:', authData.pendingUserData);
+          
+          // IMPORTANT: Clear any cached user data - this is a new/different user
+          console.log('🧹 Clearing cached user data for new auth flow');
+          setUser(null);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('djq_user');
+            // Store pending data in localStorage for the phone login/register flow
+            localStorage.setItem('djq_pending_user_data', JSON.stringify(authData.pendingUserData));
+          }
+          
+          setNeedsPhone(true);
+          return false;
         } else {
           console.warn('⚠️ Auth response OK but no user in response');
+          // Clear cached user if auth failed
+          setUser(null);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('djq_user');
+          }
         }
       } else {
         const errorText = await authResponse.text();

@@ -1,10 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getUserByPhone, getUserByUsername, createUserWithPhone } from '@/db/user';
 
+interface PendingUserData {
+  fid?: string;
+  username?: string;
+  displayName?: string;
+  pfpUrl?: string;
+  accountAddress?: string;
+}
+
 /**
  * Register a new user with phone number and PIN
  * POST /api/auth/register
- * Body: { username, name, phone, pin, email? }
+ * Body: { username, name, phone, pin, email?, pendingUserData? }
+ * 
+ * If pendingUserData is provided (from Renaissance app), links accountAddress to user
  */
 export default async function handler(
   req: NextApiRequest,
@@ -15,12 +25,13 @@ export default async function handler(
   }
 
   try {
-    const { username, name, phone, pin, email } = req.body as {
+    const { username, name, phone, pin, email, pendingUserData } = req.body as {
       username?: string;
       name?: string;
       phone?: string;
       pin?: string;
       email?: string;
+      pendingUserData?: PendingUserData;
     };
 
     // Validate required fields
@@ -72,13 +83,17 @@ export default async function handler(
       return res.status(409).json({ error: 'Username already taken' });
     }
 
-    // Create user with PIN
+    // Create user with PIN and optional Renaissance data
     const user = await createUserWithPhone({
       username: username.trim(),
       displayName: name.trim(),
       phone: normalizedPhone,
       pin: pin,
       email: email?.trim() || undefined,
+      // Link Renaissance data if provided
+      accountAddress: pendingUserData?.accountAddress,
+      fid: pendingUserData?.fid,
+      pfpUrl: pendingUserData?.pfpUrl,
     });
 
     // Set session cookie
@@ -88,6 +103,7 @@ export default async function handler(
       userId: user.id,
       username: user.username,
       phone: user.phone,
+      accountAddress: user.accountAddress,
     });
 
     return res.status(201).json({
@@ -98,6 +114,7 @@ export default async function handler(
         displayName: user.displayName,
         phone: user.phone,
         email: user.email,
+        accountAddress: user.accountAddress,
       },
     });
   } catch (error) {

@@ -253,6 +253,10 @@ export interface CreateUserWithPhoneData {
   phone: string;
   email?: string;
   pin: string; // 4-digit PIN (will be hashed before storage)
+  // Optional Renaissance/Farcaster data
+  accountAddress?: string;
+  fid?: string;
+  pfpUrl?: string;
 }
 
 export async function createUserWithPhone(data: CreateUserWithPhoneData): Promise<User> {
@@ -264,12 +268,14 @@ export async function createUserWithPhone(data: CreateUserWithPhoneData): Promis
   
   const newUser = {
     id,
-    fid: null,
+    fid: data.fid || null,
     phone: data.phone,
     email: data.email || null,
     username: data.username,
     displayName: data.displayName,
-    pfpUrl: null,
+    pfpUrl: data.pfpUrl || null,
+    profilePicture: data.pfpUrl || null, // Initialize with pfpUrl if provided
+    accountAddress: data.accountAddress || null, // From Renaissance auth
     pinHash,
     failedPinAttempts: 0,
     lockedAt: null,
@@ -279,91 +285,149 @@ export async function createUserWithPhone(data: CreateUserWithPhoneData): Promis
   
   await db.insert(users).values(newUser);
   
+  console.log('🆕 [CREATE USER] Created user with phone:', {
+    userId: id,
+    username: data.username,
+    phone: data.phone,
+    accountAddress: data.accountAddress,
+  });
+  
   return {
     ...newUser,
     lockedAt: null,
   } as User;
 }
 
+/**
+ * Look up a user by accountAddress only (for Renaissance app users)
+ * Returns null if no user found - caller should prompt for phone number
+ */
+export async function getUserByAccountAddressOnly(
+  accountAddress: string,
+  userData?: FarcasterUserData
+): Promise<{ user: User; isNewUser: false } | null> {
+  const existing = await getUserByAccountAddress(accountAddress);
+  
+  if (!existing) {
+    console.log('🔍 [USER LOOKUP] No user found for accountAddress:', accountAddress);
+    return null;
+  }
+  
+  console.log('🔍 [USER LOOKUP] Found user by accountAddress:', accountAddress);
+  
+  // Update user if new data is provided - sync Renaissance data
+  if (userData) {
+    const now = new Date();
+    const updateData: {
+      fid?: string | null;
+      username?: string | null;
+      name?: string | null;
+      pfpUrl?: string | null;
+      updatedAt: Date;
+    } = { updatedAt: now };
+    
+    // Sync username, name, pfpUrl from Renaissance
+    // displayName and profilePicture are app-specific and won't be affected
+    if (userData.fid) updateData.fid = userData.fid;
+    if (userData.username !== undefined) updateData.username = userData.username;
+    if (userData.name !== undefined) updateData.name = userData.name;
+    if (userData.pfpUrl !== undefined) updateData.pfpUrl = userData.pfpUrl;
+    
+    await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, existing.id));
+    
+    return {
+      user: {
+        ...existing,
+        ...updateData,
+      } as User,
+      isNewUser: false,
+    };
+  }
+  
+  return { user: existing, isNewUser: false };
+}
+
+/**
+ * Link an accountAddress to an existing user (found by phone)
+ * Called after user enters phone number and is found/created
+ */
+export async function linkAccountAddressToUser(
+  userId: string,
+  accountAddress: string,
+  userData?: FarcasterUserData
+): Promise<User | null> {
+  const existing = await getUserById(userId);
+  if (!existing) return null;
+  
+  const now = new Date();
+  const updateData: {
+    fid?: string | null;
+    username?: string | null;
+    name?: string | null;
+    pfpUrl?: string | null;
+    accountAddress: string;
+    updatedAt: Date;
+  } = { 
+    accountAddress,
+    updatedAt: now,
+  };
+  
+  // Also sync other Renaissance data if provided
+  if (userData?.fid) updateData.fid = userData.fid;
+  if (userData?.username) updateData.username = userData.username;
+  if (userData?.name) updateData.name = userData.name;
+  if (userData?.pfpUrl) updateData.pfpUrl = userData.pfpUrl;
+  
+  await db
+    .update(users)
+    .set(updateData)
+    .where(eq(users.id, userId));
+  
+  console.log('🔗 [USER LOOKUP] Linked accountAddress to user:', { userId, accountAddress });
+  
+  return {
+    ...existing,
+    ...updateData,
+  };
+}
+
+/**
+ * @deprecated Use getUserByAccountAddressOnly instead
+ * Kept for backwards compatibility
+ */
 export async function getOrCreateUserByFid(
   fid: string,
   userData?: FarcasterUserData
 ): Promise<{ user: User; isNewUser: boolean }> {
-  // Priority 1: Look up by accountAddress (wallet address) if provided
-  // This is the primary identifier for Renaissance app users
-  let existing: User | null = null;
-  
+  // Try accountAddress lookup first
   if (userData?.accountAddress) {
-    existing = await getUserByAccountAddress(userData.accountAddress);
-    if (existing) {
-      console.log('🔍 [USER LOOKUP] Found user by accountAddress:', userData.accountAddress);
+    const result = await getUserByAccountAddressOnly(userData.accountAddress, userData);
+    if (result) {
+      return result;
     }
   }
   
-  // Priority 2: Fall back to fid lookup only if no accountAddress match
-  if (!existing) {
-    existing = await getUserByFid(fid);
-    if (existing) {
-      console.log('🔍 [USER LOOKUP] Found user by fid:', fid);
-    }
-  }
-  
-  if (existing) {
-    // Update user if new data is provided - sync Farcaster/Renaissance data
-    if (userData) {
-      const now = new Date();
-      const updateData: {
-        fid?: string | null;
-        username?: string | null;
-        name?: string | null;
-        pfpUrl?: string | null;
-        accountAddress?: string | null;
-        updatedAt: Date;
-      } = { updatedAt: now };
-      
-      // Sync username, name, pfpUrl, and accountAddress from Farcaster/Renaissance
-      // displayName and profilePicture are app-specific and won't be affected
-      // Also update fid if it changed (e.g., user linked a Farcaster account later)
-      if (fid && fid !== existing.fid) updateData.fid = fid;
-      if (userData.username !== undefined) updateData.username = userData.username;
-      if (userData.name !== undefined) updateData.name = userData.name;
-      if (userData.pfpUrl !== undefined) updateData.pfpUrl = userData.pfpUrl;
-      if (userData.accountAddress !== undefined) updateData.accountAddress = userData.accountAddress;
-      
-      await db
-        .update(users)
-        .set(updateData)
-        .where(eq(users.id, existing.id));
-      
-      return {
-        user: {
-          ...existing,
-          ...updateData,
-        } as User,
-        isNewUser: false,
-      };
-    }
-    
-    return { user: existing, isNewUser: false };
-  }
-  
-  // Create new user - initialize app-specific fields with Farcaster data
+  // If no accountAddress match, create new user
+  // This path should not be used for Renaissance app - they should go through phone verification
   const id = uuidv4();
   const now = new Date();
   const newUser = {
     id,
     fid,
     username: userData?.username || null,
-    name: userData?.name || null, // Synced from Farcaster
-    pfpUrl: userData?.pfpUrl || null, // Synced from Farcaster
-    displayName: userData?.name || null, // Initialize with Farcaster name
-    profilePicture: userData?.pfpUrl || null, // Initialize with Farcaster pfp
-    accountAddress: userData?.accountAddress || null, // From Renaissance auth
+    name: userData?.name || null,
+    pfpUrl: userData?.pfpUrl || null,
+    displayName: userData?.name || null,
+    profilePicture: userData?.pfpUrl || null,
+    accountAddress: userData?.accountAddress || null,
     createdAt: now,
     updatedAt: now,
   };
   
-  console.log('🆕 [USER LOOKUP] Creating new user with accountAddress:', userData?.accountAddress, 'fid:', fid);
+  console.log('🆕 [USER LOOKUP] Creating new user:', { accountAddress: userData?.accountAddress, username: userData?.username });
   
   await db.insert(users).values(newUser);
   
