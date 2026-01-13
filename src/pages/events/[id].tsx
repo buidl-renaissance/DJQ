@@ -375,6 +375,34 @@ export default function EventDetailPage() {
     fetchEvent();
   }, [id, user]);
 
+  // Pre-select slots from URL query params (for returning from login/signup flow)
+  useEffect(() => {
+    if (!router.isReady || slots.length === 0) return;
+    
+    const { slots: slotsParam } = router.query;
+    if (typeof slotsParam === 'string' && slotsParam) {
+      const slotIdsFromUrl = slotsParam.split(',').filter(Boolean);
+      
+      // Validate that these slots exist and are available
+      const validSlotIds = slotIdsFromUrl.filter(slotId => {
+        const slot = slots.find(s => s.id === slotId);
+        return slot && slot.status === 'available';
+      });
+      
+      if (validSlotIds.length > 0) {
+        setSelectedSlotIds(validSlotIds);
+        
+        // Clean up URL by removing the slots param (keep user on clean URL)
+        const { slots: _, ...restQuery } = router.query;
+        router.replace(
+          { pathname: router.pathname, query: restQuery },
+          undefined,
+          { shallow: true }
+        );
+      }
+    }
+  }, [router.isReady, router.query, slots, router.pathname]);
+
   // Handle slot click
   const handleSlotClickWithCount = (slotId: string) => {
     // If already selected, deselect
@@ -424,9 +452,10 @@ export default function EventDetailPage() {
   const handleBook = async () => {
     if (selectedSlotIds.length === 0) return;
 
-    // If user is not logged in, redirect to login with return URL
+    // If user is not logged in, redirect to login with return URL including selected slots
     if (!user) {
-      const returnUrl = encodeURIComponent(`/events/${id}`);
+      const slotsParam = selectedSlotIds.join(',');
+      const returnUrl = encodeURIComponent(`/events/${id}?slots=${slotsParam}`);
       router.push(`/login?redirect=${returnUrl}`);
       return;
     }

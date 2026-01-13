@@ -517,14 +517,14 @@ export default function LoginPage() {
               <FormGroup>
                 <Label>Create PIN</Label>
                 <Input
-                  type="password"
+                  type="text"
                   inputMode="numeric"
                   value={pin}
                   onChange={handlePinChange}
-                  placeholder="••••"
+                  placeholder="0000"
                   required
                   maxLength={4}
-                  autoComplete="new-password"
+                  autoComplete="off"
                   autoFocus
                 />
               </FormGroup>
@@ -532,14 +532,14 @@ export default function LoginPage() {
               <FormGroup>
                 <Label>Confirm PIN</Label>
                 <Input
-                  type="password"
+                  type="text"
                   inputMode="numeric"
                   value={confirmPin}
                   onChange={handleConfirmPinChange}
-                  placeholder="••••"
+                  placeholder="0000"
                   required
                   maxLength={4}
-                  autoComplete="new-password"
+                  autoComplete="off"
                 />
               </FormGroup>
               
@@ -584,14 +584,14 @@ export default function LoginPage() {
               <FormGroup>
                 <Label>PIN</Label>
                 <Input
-                  type="password"
+                  type="text"
                   inputMode="numeric"
                   value={pin}
                   onChange={handlePinChange}
-                  placeholder="••••"
+                  placeholder="0000"
                   required
                   maxLength={4}
-                  autoComplete="current-password"
+                  autoComplete="off"
                   autoFocus
                 />
               </FormGroup>

@@ -400,28 +400,28 @@ export default function RegisterPage() {
             <FormGroup>
               <Label>4-Digit PIN</Label>
               <Input
-                type="password"
+                type="text"
                 inputMode="numeric"
                 value={pin}
                 onChange={handlePinChange}
-                placeholder="••••"
+                placeholder="0000"
                 required
                 maxLength={4}
-                autoComplete="new-password"
+                autoComplete="off"
               />
             </FormGroup>
 
             <FormGroup>
               <Label>Confirm PIN</Label>
               <Input
-                type="password"
+                type="text"
                 inputMode="numeric"
                 value={confirmPin}
                 onChange={handleConfirmPinChange}
-                placeholder="••••"
+                placeholder="0000"
                 required
                 maxLength={4}
-                autoComplete="new-password"
+                autoComplete="off"
               />
             </FormGroup>
             

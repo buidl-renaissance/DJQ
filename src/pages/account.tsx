@@ -884,38 +884,38 @@ export default function AccountPage() {
           {userHasPin && (
             <FormGroup>
               <Input
-                type="password"
+                type="text"
                 inputMode="numeric"
                 value={currentPin}
                 onChange={handlePinInputChange(setCurrentPin)}
                 placeholder="Current PIN"
                 maxLength={4}
-                autoComplete="current-password"
+                autoComplete="off"
               />
             </FormGroup>
           )}
 
           <FormGroup>
             <Input
-              type="password"
+              type="text"
               inputMode="numeric"
               value={newPin}
               onChange={handlePinInputChange(setNewPin)}
               placeholder={userHasPin ? 'New PIN' : 'Create PIN'}
               maxLength={4}
-              autoComplete="new-password"
+              autoComplete="off"
             />
           </FormGroup>
 
           <FormGroup>
             <Input
-              type="password"
+              type="text"
               inputMode="numeric"
               value={confirmNewPin}
               onChange={handlePinInputChange(setConfirmNewPin)}
               placeholder="Confirm PIN"
               maxLength={4}
-              autoComplete="new-password"
+              autoComplete="off"
             />
           </FormGroup>
 
