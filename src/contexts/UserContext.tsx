@@ -21,6 +21,8 @@ interface SDKUser {
   renaissanceUserId?: number | string; // Renaissance-only accounts
   accountAddress?: string; // Wallet address from Renaissance auth
   account_address?: string; // Wallet address (snake_case)
+  publicAddress?: string; // Public wallet address (Renaissance)
+  public_address?: string; // Public wallet address (snake_case)
   custodyAddress?: string; // Alternative wallet address field
   custody_address?: string; // Alternative (snake_case)
 }
@@ -155,9 +157,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🔐 Authenticating with SDK user:', sdkUser);
       
       // Normalize user data - use pfpUrl or pfp_url, displayName or display_name
-      // Get account address from various possible field names
-      const accountAddress = sdkUser.accountAddress || sdkUser.account_address || 
+      // Get account address from various possible field names (publicAddress is primary for Renaissance)
+      const accountAddress = sdkUser.publicAddress || sdkUser.public_address ||
+                            sdkUser.accountAddress || sdkUser.account_address || 
                             sdkUser.custodyAddress || sdkUser.custody_address;
+      
+      console.log('🔑 [AUTH] Extracted accountAddress:', accountAddress, 'from SDK user:', {
+        publicAddress: sdkUser.publicAddress,
+        public_address: sdkUser.public_address,
+        accountAddress: sdkUser.accountAddress,
+        account_address: sdkUser.account_address,
+      });
       
       const normalizedData = {
         fid: String(sdkUser.fid),

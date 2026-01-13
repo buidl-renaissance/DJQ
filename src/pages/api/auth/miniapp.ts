@@ -28,12 +28,19 @@ export default async function handler(
       return res.status(400).json({ error: 'fid is required' });
     }
 
-    console.log('🔐 [MINIAPP AUTH] Authenticating mini app user:', { fid, username, displayName, renaissanceUserId, accountAddress });
+    console.log('🔐 [MINIAPP AUTH] Authenticating mini app user:', { 
+      fid, 
+      username, 
+      displayName, 
+      renaissanceUserId, 
+      accountAddress: accountAddress || '(not provided)',
+    });
     console.log('🔐 [MINIAPP AUTH] Request headers:', {
       origin: req.headers.origin,
       referer: req.headers.referer,
       'user-agent': req.headers['user-agent']?.substring(0, 50),
     });
+    console.log('🔐 [MINIAPP AUTH] Full request body:', JSON.stringify(req.body, null, 2));
 
     // Get or create user in database
     // Farcaster's displayName is stored as 'name' (synced from parent app)

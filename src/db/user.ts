@@ -164,6 +164,35 @@ export async function getUserByUsername(username: string): Promise<User | null> 
   } as User;
 }
 
+export async function getUserByAccountAddress(accountAddress: string): Promise<User | null> {
+  const results = await db
+    .select()
+    .from(users)
+    .where(eq(users.accountAddress, accountAddress))
+    .limit(1);
+  
+  if (results.length === 0) return null;
+  
+  const row = results[0];
+  return {
+    id: row.id,
+    fid: row.fid,
+    phone: row.phone,
+    email: row.email,
+    username: row.username,
+    name: row.name,
+    pfpUrl: row.pfpUrl,
+    displayName: row.displayName,
+    profilePicture: row.profilePicture,
+    accountAddress: row.accountAddress,
+    pinHash: row.pinHash,
+    failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
+    lockedAt: row.lockedAt || null,
+    createdAt: row.createdAt || new Date(),
+    updatedAt: row.updatedAt || new Date(),
+  } as User;
+}
+
 export async function updateUserDisplayName(userId: string, displayName: string): Promise<User | null> {
   const existing = await getUserById(userId);
   if (!existing) return null;
@@ -260,13 +289,31 @@ export async function getOrCreateUserByFid(
   fid: string,
   userData?: FarcasterUserData
 ): Promise<{ user: User; isNewUser: boolean }> {
-  const existing = await getUserByFid(fid);
+  // Priority 1: Look up by accountAddress (wallet address) if provided
+  // This is the primary identifier for Renaissance app users
+  let existing: User | null = null;
+  
+  if (userData?.accountAddress) {
+    existing = await getUserByAccountAddress(userData.accountAddress);
+    if (existing) {
+      console.log('🔍 [USER LOOKUP] Found user by accountAddress:', userData.accountAddress);
+    }
+  }
+  
+  // Priority 2: Fall back to fid lookup only if no accountAddress match
+  if (!existing) {
+    existing = await getUserByFid(fid);
+    if (existing) {
+      console.log('🔍 [USER LOOKUP] Found user by fid:', fid);
+    }
+  }
   
   if (existing) {
     // Update user if new data is provided - sync Farcaster/Renaissance data
     if (userData) {
       const now = new Date();
       const updateData: {
+        fid?: string | null;
         username?: string | null;
         name?: string | null;
         pfpUrl?: string | null;
@@ -276,6 +323,8 @@ export async function getOrCreateUserByFid(
       
       // Sync username, name, pfpUrl, and accountAddress from Farcaster/Renaissance
       // displayName and profilePicture are app-specific and won't be affected
+      // Also update fid if it changed (e.g., user linked a Farcaster account later)
+      if (fid && fid !== existing.fid) updateData.fid = fid;
       if (userData.username !== undefined) updateData.username = userData.username;
       if (userData.name !== undefined) updateData.name = userData.name;
       if (userData.pfpUrl !== undefined) updateData.pfpUrl = userData.pfpUrl;
@@ -313,6 +362,8 @@ export async function getOrCreateUserByFid(
     createdAt: now,
     updatedAt: now,
   };
+  
+  console.log('🆕 [USER LOOKUP] Creating new user with accountAddress:', userData?.accountAddress, 'fid:', fid);
   
   await db.insert(users).values(newUser);
   
