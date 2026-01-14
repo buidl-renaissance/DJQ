@@ -13,6 +13,7 @@ type ResponseData = {
     phone: string | null;
     accountAddress: string | null;
     hasPin?: boolean;
+    status: 'active' | 'inactive' | 'banned' | null;
   } | null;
 };
 
@@ -123,6 +124,7 @@ export default async function handler(
         phone: user.phone ?? null,
         accountAddress: user.accountAddress ?? null,
         hasPin: !!(user.pinHash),
+        status: user.status,
       },
     });
   } catch (error) {

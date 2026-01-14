@@ -16,6 +16,7 @@ export const users = sqliteTable('users', {
   pinHash: text('pinHash'), // bcrypt hash of 4-digit PIN (nullable for existing/miniapp users)
   failedPinAttempts: integer('failedPinAttempts').default(0), // Failed PIN attempts counter (default 0)
   lockedAt: integer('lockedAt', { mode: 'timestamp' }), // Timestamp when account was locked (null = not locked)
+  status: text('status').default('active'), // User status: active, inactive, banned (null treated as active)
   createdAt: integer('createdAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
 });
@@ -29,6 +30,10 @@ export const farcasterAccounts = sqliteTable('farcaster_accounts', {
   createdAt: integer('createdAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
 });
+
+// User status enum values
+export const USER_STATUSES = ['active', 'inactive', 'banned'] as const;
+export type UserStatus = typeof USER_STATUSES[number];
 
 // Booking type enum values
 export const BOOKING_TYPES = ['open_decks'] as const;

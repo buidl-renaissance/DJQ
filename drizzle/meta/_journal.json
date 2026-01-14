@@ -64,6 +64,20 @@
       "when": 1768249329523,
       "tag": "0008_sturdy_wild_child",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1736812800000,
+      "tag": "0009_add_user_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1768363967270,
+      "tag": "0010_square_juggernaut",
+      "breakpoints": true
     }
   ]
 }

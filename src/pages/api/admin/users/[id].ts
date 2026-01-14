@@ -1,17 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '@/db/drizzle';
 import { users, slotBookings, b2bRequests, events, timeSlots, farcasterAccounts } from '@/db/schema';
-import { getUserById, unlockUser } from '@/db/user';
+import { getUserById, unlockUser, updateUserStatus, UserStatus } from '@/db/user';
 import { eq, or, inArray } from 'drizzle-orm';
 
-// Admin wallet address (only this user can access admin functions)
-const ADMIN_ADDRESS = '0x705987979b81C2a341C15967315Cc1ab5E56089F';
+// Admin username (only this user can access admin functions)
+const ADMIN_USERNAME = 'WiredInSamurai';
 
 // Helper to check if user is admin
 async function isAdmin(userId: string): Promise<boolean> {
   const user = await getUserById(userId);
-  if (!user || !user.accountAddress) return false;
-  return user.accountAddress.toLowerCase() === ADMIN_ADDRESS.toLowerCase();
+  if (!user || !user.username) return false;
+  return user.username === ADMIN_USERNAME;
 }
 
 // Helper to get userId from session cookie
@@ -52,7 +52,7 @@ export default async function handler(
       }
 
       // Prevent deleting admin
-      if (targetUser.accountAddress?.toLowerCase() === ADMIN_ADDRESS.toLowerCase()) {
+      if (targetUser.username === ADMIN_USERNAME) {
         return res.status(400).json({ error: 'Cannot delete admin user' });
       }
 
@@ -170,14 +170,10 @@ export default async function handler(
     }
   }
 
-  // PATCH - Unlock user account
+  // PATCH - Admin actions (unlock, updateStatus)
   if (req.method === 'PATCH') {
     try {
-      const { action } = req.body as { action?: string };
-
-      if (action !== 'unlock') {
-        return res.status(400).json({ error: 'Invalid action. Only "unlock" is supported.' });
-      }
+      const { action, status } = req.body as { action?: string; status?: UserStatus };
 
       // Check if target user exists
       const targetUser = await getUserById(targetUserId);
@@ -185,34 +181,68 @@ export default async function handler(
         return res.status(404).json({ error: 'User not found' });
       }
 
-      // Check if user is actually locked
-      if (!targetUser.lockedAt) {
-        return res.status(400).json({ error: 'User account is not locked' });
+      // Prevent modifying admin
+      if (targetUser.username === ADMIN_USERNAME) {
+        return res.status(400).json({ error: 'Cannot modify admin user' });
       }
 
-      // Unlock the user
-      const unlockedUser = await unlockUser(targetUserId);
+      if (action === 'unlock') {
+        // Check if user is actually locked
+        if (!targetUser.lockedAt) {
+          return res.status(400).json({ error: 'User account is not locked' });
+        }
 
-      if (!unlockedUser) {
-        return res.status(500).json({ error: 'Failed to unlock user' });
+        // Unlock the user
+        const unlockedUser = await unlockUser(targetUserId);
+
+        if (!unlockedUser) {
+          return res.status(500).json({ error: 'Failed to unlock user' });
+        }
+
+        console.log(`🔓 [ADMIN] User ${targetUserId} unlocked successfully`);
+
+        return res.status(200).json({
+          success: true,
+          message: 'User account unlocked successfully',
+          user: {
+            id: unlockedUser.id,
+            username: unlockedUser.username,
+            displayName: unlockedUser.displayName,
+            lockedAt: unlockedUser.lockedAt,
+            failedPinAttempts: unlockedUser.failedPinAttempts,
+          },
+        });
       }
 
-      console.log(`🔓 [ADMIN] User ${targetUserId} unlocked successfully`);
+      if (action === 'updateStatus') {
+        if (!status || !['active', 'inactive', 'banned'].includes(status)) {
+          return res.status(400).json({ error: 'Invalid status. Must be "active", "inactive", or "banned".' });
+        }
 
-      return res.status(200).json({
-        success: true,
-        message: 'User account unlocked successfully',
-        user: {
-          id: unlockedUser.id,
-          username: unlockedUser.username,
-          displayName: unlockedUser.displayName,
-          lockedAt: unlockedUser.lockedAt,
-          failedPinAttempts: unlockedUser.failedPinAttempts,
-        },
-      });
+        const updatedUser = await updateUserStatus(targetUserId, status);
+
+        if (!updatedUser) {
+          return res.status(500).json({ error: 'Failed to update user status' });
+        }
+
+        console.log(`🔄 [ADMIN] User ${targetUserId} status updated to "${status}"`);
+
+        return res.status(200).json({
+          success: true,
+          message: `User status updated to "${status}"`,
+          user: {
+            id: updatedUser.id,
+            username: updatedUser.username,
+            displayName: updatedUser.displayName,
+            status: updatedUser.status,
+          },
+        });
+      }
+
+      return res.status(400).json({ error: 'Invalid action. Supported actions: "unlock", "updateStatus".' });
     } catch (error) {
-      console.error('Error unlocking user:', error);
-      return res.status(500).json({ error: 'Failed to unlock user' });
+      console.error('Error processing admin action:', error);
+      return res.status(500).json({ error: 'Failed to process action' });
     }
   }
 

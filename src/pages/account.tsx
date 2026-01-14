@@ -306,6 +306,116 @@ const Spinner = styled.div`
   animation: ${spin} 0.8s linear infinite;
 `;
 
+const DeactivatedContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  padding: 2rem;
+`;
+
+const DeactivatedIcon = styled.div`
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+`;
+
+const DeactivatedTitle = styled.h2`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 1.5rem;
+  color: ${({ theme }) => theme.colors.contrast};
+  margin-bottom: 1rem;
+`;
+
+const DeactivatedText = styled.p`
+  font-family: ${({ theme }) => theme.fonts.body};
+  color: ${({ theme }) => theme.colors.contrast};
+  opacity: 0.7;
+  margin-bottom: 2rem;
+  max-width: 300px;
+`;
+
+const ReactivateButton = styled.button<{ $loading?: boolean }>`
+  background: ${({ theme }) => theme.colors.accent};
+  border: none;
+  border-radius: 6px;
+  padding: 1rem 2rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.9rem;
+  color: ${({ theme }) => theme.colors.background};
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: ${({ $loading }) => $loading ? 'wait' : 'pointer'};
+  transition: all 0.2s;
+  
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(57, 255, 20, 0.4);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const BannedContainer = styled(DeactivatedContainer)``;
+
+const BannedTitle = styled.h2`
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 1.5rem;
+  color: ${({ theme }) => theme.colors.secondary};
+  margin-bottom: 1rem;
+`;
+
+const BannedText = styled.p`
+  font-family: ${({ theme }) => theme.fonts.body};
+  color: ${({ theme }) => theme.colors.contrast};
+  opacity: 0.7;
+  max-width: 300px;
+`;
+
+const DangerCard = styled(Card)`
+  border-color: ${({ theme }) => theme.colors.secondary};
+`;
+
+const DangerCardTitle = styled(CardTitle)`
+  color: ${({ theme }) => theme.colors.secondary};
+`;
+
+const DeactivateButton = styled.button<{ $loading?: boolean }>`
+  background: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.secondary};
+  border-radius: 6px;
+  padding: 0.875rem 1.5rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.8rem;
+  color: ${({ theme }) => theme.colors.secondary};
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: ${({ $loading }) => $loading ? 'wait' : 'pointer'};
+  transition: all 0.2s;
+  width: 100%;
+  
+  &:hover:not(:disabled) {
+    background: rgba(255, 45, 149, 0.1);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const DeactivateWarning = styled.p`
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.8rem;
+  color: ${({ theme }) => theme.colors.contrast};
+  opacity: 0.7;
+  margin-bottom: 1rem;
+`;
+
 // Pencil/Edit SVG icon
 const PencilIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="100%" height="100%">
@@ -379,8 +489,17 @@ export default function AccountPage() {
   const [savingPin, setSavingPin] = useState(false);
   const [pinMessage, setPinMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Account status state
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Check if user has a PIN set
   const userHasPin = user?.hasPin ?? false;
+  
+  // Check user status
+  const userStatus = user?.status ?? 'active'; // null treated as active
+  const isDeactivated = userStatus === 'inactive';
+  const isBanned = userStatus === 'banned';
 
   // Initialize form fields when user loads
   useEffect(() => {
@@ -742,6 +861,67 @@ export default function AccountPage() {
   const canSubmitSetPin = newPin.length === 4 && confirmNewPin.length === 4 && newPin === confirmNewPin;
   const canSubmitPinChange = currentPin.length === 4 && newPin.length === 4 && confirmNewPin.length === 4 && newPin === confirmNewPin;
 
+  const handleDeactivateAccount = async () => {
+    const confirmMsg = 'Are you sure you want to deactivate your account?\n\nYou will no longer appear in searches and your bookings will be hidden.\n\nYou can reactivate your account at any time.';
+    if (!confirm(confirmMsg)) return;
+
+    setUpdatingStatus(true);
+    setStatusMessage(null);
+
+    try {
+      const res = await fetch('/api/user/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deactivate' }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatusMessage({ type: 'error', text: data.error || 'Failed to deactivate account' });
+        return;
+      }
+
+      // Update user context
+      updateUser({ status: 'inactive' });
+      setStatusMessage({ type: 'success', text: 'Account deactivated' });
+    } catch (err) {
+      console.error('Error deactivating account:', err);
+      setStatusMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleReactivateAccount = async () => {
+    setUpdatingStatus(true);
+    setStatusMessage(null);
+
+    try {
+      const res = await fetch('/api/user/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reactivate' }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatusMessage({ type: 'error', text: data.error || 'Failed to reactivate account' });
+        return;
+      }
+
+      // Update user context
+      updateUser({ status: 'active' });
+      setStatusMessage({ type: 'success', text: 'Account reactivated!' });
+    } catch (err) {
+      console.error('Error reactivating account:', err);
+      setStatusMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <AppLayout title="Account | DJQ">
@@ -767,6 +947,50 @@ export default function AccountPage() {
               Log In
             </LoginButton>
           </NotAuthenticatedContainer>
+        </Container>
+      </AppLayout>
+    );
+  }
+
+  // Show banned state
+  if (isBanned) {
+    return (
+      <AppLayout title="Account | DJQ">
+        <Container>
+          <BannedContainer>
+            <DeactivatedIcon>🚫</DeactivatedIcon>
+            <BannedTitle>Account Banned</BannedTitle>
+            <BannedText>
+              Your account has been banned. If you believe this is a mistake, please contact support.
+            </BannedText>
+          </BannedContainer>
+        </Container>
+      </AppLayout>
+    );
+  }
+
+  // Show deactivated state
+  if (isDeactivated) {
+    return (
+      <AppLayout title="Account | DJQ">
+        <Container>
+          <DeactivatedContainer>
+            <DeactivatedIcon>😴</DeactivatedIcon>
+            <DeactivatedTitle>Account Deactivated</DeactivatedTitle>
+            <DeactivatedText>
+              Your account is currently deactivated. You won&apos;t appear in searches and your profile is hidden.
+            </DeactivatedText>
+            {statusMessage && (
+              <Message $type={statusMessage.type}>{statusMessage.text}</Message>
+            )}
+            <ReactivateButton
+              onClick={handleReactivateAccount}
+              disabled={updatingStatus}
+              $loading={updatingStatus}
+            >
+              {updatingStatus ? 'Reactivating...' : 'Reactivate Account'}
+            </ReactivateButton>
+          </DeactivatedContainer>
         </Container>
       </AppLayout>
     );
@@ -927,6 +1151,27 @@ export default function AccountPage() {
             {savingPin ? (userHasPin ? 'Updating...' : 'Setting...') : (userHasPin ? 'Update PIN' : 'Set PIN')}
           </SaveButton>
         </Card>
+
+        <DangerCard>
+          <DangerCardTitle>Deactivate Account</DangerCardTitle>
+          
+          {statusMessage && (
+            <Message $type={statusMessage.type}>{statusMessage.text}</Message>
+          )}
+          
+          <DeactivateWarning>
+            Deactivating your account will hide your profile from searches and other users. 
+            Your data will be preserved and you can reactivate at any time.
+          </DeactivateWarning>
+          
+          <DeactivateButton
+            onClick={handleDeactivateAccount}
+            disabled={updatingStatus}
+            $loading={updatingStatus}
+          >
+            {updatingStatus ? 'Deactivating...' : 'Deactivate Account'}
+          </DeactivateButton>
+        </DangerCard>
 
         {imageToCrop && (
           <ImageCropModal

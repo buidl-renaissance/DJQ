@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { eq, or, isNull } from 'drizzle-orm';
 import { db } from '@/db/drizzle';
 import { users } from '@/db/schema';
 
@@ -11,7 +12,7 @@ export default async function handler(
   }
 
   try {
-    // Get all users for B2B search
+    // Get all active users for B2B search (null status treated as active)
     // In production, this should have pagination and search filters
     const allUsers = await db
       .select({
@@ -20,6 +21,7 @@ export default async function handler(
         username: users.username,
       })
       .from(users)
+      .where(or(eq(users.status, 'active'), isNull(users.status)))
       .limit(100);
 
     const formattedUsers = allUsers.map((user) => ({

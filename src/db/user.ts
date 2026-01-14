@@ -4,6 +4,10 @@ import bcrypt from 'bcryptjs';
 import { db } from './drizzle';
 import { users, farcasterAccounts } from './schema';
 
+// User status type (mirrors schema.ts)
+export const USER_STATUSES = ['active', 'inactive', 'banned'] as const;
+export type UserStatus = typeof USER_STATUSES[number];
+
 const BCRYPT_ROUNDS = 10;
 const MAX_FAILED_ATTEMPTS = 3;
 
@@ -21,6 +25,7 @@ export interface User {
   pinHash?: string | null; // bcrypt hash of 4-digit PIN
   failedPinAttempts: number; // Failed PIN attempts counter (defaults to 0)
   lockedAt?: Date | null; // Timestamp when account was locked
+  status: UserStatus | null; // User status: active, inactive, banned (null treated as active)
   hasPin?: boolean; // Convenience field (derived from pinHash)
   createdAt: Date;
   updatedAt: Date;
@@ -72,6 +77,7 @@ export async function getUserByFid(fid: string): Promise<User | null> {
     pinHash: row.pinHash,
     failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
     lockedAt: row.lockedAt || null,
+    status: (row.status as UserStatus | null),
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -101,6 +107,7 @@ export async function getUserById(userId: string): Promise<User | null> {
     pinHash: row.pinHash,
     failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
     lockedAt: row.lockedAt || null,
+    status: (row.status as UserStatus | null),
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -130,6 +137,7 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
     pinHash: row.pinHash,
     failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
     lockedAt: row.lockedAt || null,
+    status: (row.status as UserStatus | null),
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -159,6 +167,7 @@ export async function getUserByUsername(username: string): Promise<User | null> 
     pinHash: row.pinHash,
     failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
     lockedAt: row.lockedAt || null,
+    status: (row.status as UserStatus | null),
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -188,6 +197,7 @@ export async function getUserByAccountAddress(accountAddress: string): Promise<U
     pinHash: row.pinHash,
     failedPinAttempts: getFailedAttempts(row.failedPinAttempts),
     lockedAt: row.lockedAt || null,
+    status: (row.status as UserStatus | null),
     createdAt: row.createdAt || new Date(),
     updatedAt: row.updatedAt || new Date(),
   } as User;
@@ -279,6 +289,7 @@ export async function createUserWithPhone(data: CreateUserWithPhoneData): Promis
     pinHash,
     failedPinAttempts: 0,
     lockedAt: null,
+    status: 'active' as UserStatus,
     createdAt: now,
     updatedAt: now,
   };
@@ -475,6 +486,7 @@ export async function getOrCreateUserByFid(
     displayName: userData?.name || null,
     profilePicture: userData?.pfpUrl || null,
     accountAddress: userData?.accountAddress || null,
+    status: 'active' as UserStatus,
     createdAt: now,
     updatedAt: now,
   };
@@ -726,4 +738,46 @@ export async function updateUserPin(userId: string, newPin: string): Promise<Use
     failedPinAttempts: 0,
     updatedAt: now,
   };
+}
+
+/**
+ * Update a user's status (admin function)
+ * @param userId - The user ID to update
+ * @param status - The new status: 'active', 'inactive', or 'banned'
+ */
+export async function updateUserStatus(userId: string, status: UserStatus): Promise<User | null> {
+  const existing = await getUserById(userId);
+  if (!existing) return null;
+
+  const now = new Date();
+  await db
+    .update(users)
+    .set({
+      status,
+      updatedAt: now,
+    })
+    .where(eq(users.id, userId));
+
+  console.log('🔄 [USER STATUS] Updated user status:', { userId, status });
+
+  return {
+    ...existing,
+    status,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Check if a user is active (not inactive or banned)
+ * Note: null status is treated as active
+ */
+export function isUserActive(user: User): boolean {
+  return user.status === 'active' || user.status === null;
+}
+
+/**
+ * Check if a user is banned
+ */
+export function isUserBanned(user: User): boolean {
+  return user.status === 'banned';
 }

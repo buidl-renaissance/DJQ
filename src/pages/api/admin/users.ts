@@ -4,14 +4,14 @@ import { users, slotBookings, events } from '@/db/schema';
 import { getUserById } from '@/db/user';
 import { eq, desc } from 'drizzle-orm';
 
-// Admin wallet address (only this user can access admin functions)
-const ADMIN_ADDRESS = '0x705987979b81C2a341C15967315Cc1ab5E56089F';
+// Admin username (only this user can access admin functions)
+const ADMIN_USERNAME = 'WiredInSamurai';
 
 // Helper to check if user is admin
 async function isAdmin(userId: string): Promise<boolean> {
   const user = await getUserById(userId);
-  if (!user || !user.accountAddress) return false;
-  return user.accountAddress.toLowerCase() === ADMIN_ADDRESS.toLowerCase();
+  if (!user || !user.username) return false;
+  return user.username === ADMIN_USERNAME;
 }
 
 // Helper to get userId from session cookie
@@ -73,6 +73,7 @@ export default async function handler(
             lockedAt: user.lockedAt,
             failedPinAttempts: user.failedPinAttempts,
             hasPin: !!user.pinHash,
+            status: user.status,
           };
         })
       );

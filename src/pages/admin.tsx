@@ -3,7 +3,7 @@ import styled, { keyframes } from 'styled-components';
 import AppLayout from '@/components/layout/AppLayout';
 import { useUser } from '@/contexts/UserContext';
 
-const ADMIN_ADDRESS = '0x705987979b81C2a341C15967315Cc1ab5E56089F';
+const ADMIN_USERNAME = 'WiredInSamurai';
 
 const fadeIn = keyframes`
   from {
@@ -229,9 +229,43 @@ const NoPinBadge = styled.span`
   font-family: ${({ theme }) => theme.fonts.heading};
 `;
 
+const StatusBadge = styled.span<{ $status: 'active' | 'inactive' | 'banned' | null }>`
+  background: ${({ theme, $status }) => 
+    $status === 'banned' ? theme.colors.secondary :
+    $status === 'inactive' ? theme.colors.darkGray :
+    'rgba(57, 255, 20, 0.2)'};
+  color: ${({ theme, $status }) => 
+    $status === 'banned' ? theme.colors.background :
+    $status === 'inactive' ? theme.colors.contrast :
+    theme.colors.accent};
+  font-size: 0.6rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  font-family: ${({ theme }) => theme.fonts.heading};
+`;
+
 const ButtonGroup = styled.div`
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+`;
+
+const StatusSelect = styled.select`
+  background: ${({ theme }) => theme.colors.dark};
+  border: 1px solid ${({ theme }) => theme.colors.darkGray};
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.contrast};
+  cursor: pointer;
+  
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.accent};
+  }
 `;
 
 const Message = styled.div<{ $type: 'success' | 'error' }>`
@@ -285,6 +319,7 @@ interface UserData {
   lockedAt: string | null;
   failedPinAttempts: number;
   hasPin: boolean;
+  status: 'active' | 'inactive' | 'banned' | null;
 }
 
 export default function AdminPage() {
@@ -293,9 +328,10 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const isAdmin = user?.accountAddress?.toLowerCase() === ADMIN_ADDRESS.toLowerCase();
+  const isAdmin = user?.username === ADMIN_USERNAME;
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -384,6 +420,45 @@ export default function AdminPage() {
     }
   };
 
+  const handleStatusChange = async (targetUser: UserData, newStatus: 'active' | 'inactive' | 'banned') => {
+    if (newStatus === 'banned') {
+      const confirmMsg = `Are you sure you want to BAN user "${targetUser.displayName || targetUser.username}"?\n\nThey will not be able to use the app.`;
+      if (!confirm(confirmMsg)) return;
+    }
+
+    setUpdatingStatus(targetUser.id);
+    setMessage(null);
+
+    try {
+      const res = await fetch(`/api/admin/users/${targetUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateStatus', status: newStatus }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage({ type: 'error', text: data.error || 'Failed to update status' });
+        return;
+      }
+
+      setMessage({ type: 'success', text: `User status updated to "${newStatus}"` });
+      
+      // Update user in list
+      setUsers(prev => prev.map(u => 
+        u.id === targetUser.id 
+          ? { ...u, status: newStatus }
+          : u
+      ));
+    } catch (err) {
+      console.error('Error updating user status:', err);
+      setMessage({ type: 'error', text: 'Something went wrong' });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
@@ -451,7 +526,7 @@ export default function AdminPage() {
         ) : (
           <UserList>
             {users.map((u) => {
-              const isUserAdmin = u.accountAddress?.toLowerCase() === ADMIN_ADDRESS.toLowerCase();
+              const isUserAdmin = u.username === ADMIN_USERNAME;
               const isLocked = !!u.lockedAt;
               
               return (
@@ -461,6 +536,7 @@ export default function AdminPage() {
                       {u.displayName || u.username || 'No name'}
                       {u.username && ` (@${u.username})`}
                       {isUserAdmin && <AdminBadge>Admin</AdminBadge>}
+                      {!isUserAdmin && <StatusBadge $status={u.status}>{u.status || 'active'}</StatusBadge>}
                       {isLocked && <LockedBadge>Locked</LockedBadge>}
                       {!u.hasPin && !isUserAdmin && <NoPinBadge>No PIN</NoPinBadge>}
                     </Username>
@@ -479,6 +555,15 @@ export default function AdminPage() {
                   
                   {!isUserAdmin && (
                     <ButtonGroup>
+                      <StatusSelect
+                        value={u.status || 'active'}
+                        onChange={(e) => handleStatusChange(u, e.target.value as 'active' | 'inactive' | 'banned')}
+                        disabled={updatingStatus === u.id}
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="banned">Banned</option>
+                      </StatusSelect>
                       {isLocked && (
                         <UnlockButton
                           onClick={() => handleUnlock(u)}
