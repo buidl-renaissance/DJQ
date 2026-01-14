@@ -65,6 +65,7 @@ export default async function handler(
               displayName: existingUser.displayName,
               profilePicture: existingUser.profilePicture,
               accountAddress: existingUser.accountAddress,
+              hasPin: !!existingUser.pinHash,
             },
           });
         }
@@ -144,6 +145,7 @@ export default async function handler(
         displayName: user.displayName,
         profilePicture: user.profilePicture,
         accountAddress: user.accountAddress,
+        hasPin: !!user.pinHash,
       },
     });
   } catch (error) {
