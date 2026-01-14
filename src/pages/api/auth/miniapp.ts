@@ -87,7 +87,8 @@ export default async function handler(
       });
     }
 
-    // Look up user by username only
+    // Look up user by username only (case-insensitive)
+    console.log('🔍 [MINIAPP AUTH] Looking up user by username (case-insensitive):', username);
     const result = await getUserByUsernameOnly(username, {
       fid: fid || '',
       username: username || undefined,
@@ -98,7 +99,7 @@ export default async function handler(
 
     if (!result) {
       // No user found with this username - require phone verification
-      console.log('🔐 [MINIAPP AUTH] No user found for username, requiring phone:', username);
+      console.log('⚠️ [MINIAPP AUTH] No user found for username (case-insensitive lookup):', username);
       return res.status(200).json({
         success: false,
         needsPhone: true,

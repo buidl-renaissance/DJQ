@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { db } from './drizzle';
 import { users, farcasterAccounts } from './schema';
@@ -144,10 +144,11 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
 }
 
 export async function getUserByUsername(username: string): Promise<User | null> {
+  // Use case-insensitive comparison for username lookup
   const results = await db
     .select()
     .from(users)
-    .where(eq(users.username, username))
+    .where(sql`lower(${users.username}) = lower(${username})`)
     .limit(1);
   
   if (results.length === 0) return null;
@@ -369,14 +370,15 @@ export async function getUserByUsernameOnly(
   username: string,
   userData?: FarcasterUserData
 ): Promise<{ user: User; isNewUser: false } | null> {
+  // Case-insensitive username lookup
   const existing = await getUserByUsername(username);
   
   if (!existing) {
-    console.log('🔍 [USER LOOKUP] No user found for username:', username);
+    console.log('🔍 [USER LOOKUP] No user found for username (case-insensitive):', username);
     return null;
   }
   
-  console.log('🔍 [USER LOOKUP] Found user by username:', username);
+  console.log('✅ [USER LOOKUP] Found user by username (case-insensitive):', username, '-> DB username:', existing.username);
   
   // Update user if new data is provided - sync Renaissance data
   if (userData) {
