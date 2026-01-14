@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import styled from 'styled-components';
 import AppLayout from '@/components/layout/AppLayout';
+import EventForm, { EventFormData } from '@/components/host/EventForm';
 import { useUser } from '@/contexts/UserContext';
 import { share, getBaseUrl } from '@/lib/share';
 
@@ -400,6 +401,7 @@ interface EventData {
   id: string;
   title: string;
   description: string | null;
+  imageUrl: string | null;
   eventDate: string;
   startTime: string;
   endTime: string;
@@ -423,6 +425,8 @@ export default function ManageEventPage() {
   const [error, setError] = useState<string | null>(null);
   const [sdkUsername, setSdkUsername] = useState<string | null>(null);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   // Get username from SDK on mount
   useEffect(() => {
@@ -525,11 +529,40 @@ export default function ManageEventPage() {
     }
   };
 
-  const handleCancelBooking = async (slot: SlotData) => {
+  const handleCancelBooking = async (slot: SlotData, singleSlotOnly: boolean = false) => {
     if (!slot.booking) return;
     
     const djName = slot.booking.djName;
-    if (!confirm(`Cancel ${djName}'s set at ${formatTime(slot.startTime)}?`)) return;
+    const slotTime = formatTime(slot.startTime);
+    
+    // Check if DJ has multiple consecutive slots
+    const djSlots = slots.filter(s => 
+      s.booking?.djId === slot.booking?.djId && 
+      s.booking?.djName === djName &&
+      s.status === 'booked'
+    );
+    const hasMultipleSlots = djSlots.length > 1;
+    
+    let confirmSingleSlot = singleSlotOnly;
+    
+    if (hasMultipleSlots && !singleSlotOnly) {
+      // Ask if they want to cancel just this slot or all slots
+      const choice = prompt(
+        `${djName} has ${djSlots.length} consecutive slots booked.\n\n` +
+        `Type "all" to cancel all their slots, or "single" to cancel only the ${slotTime} slot:`
+      );
+      
+      if (!choice) return; // User cancelled
+      
+      if (choice.toLowerCase() === 'single') {
+        confirmSingleSlot = true;
+      } else if (choice.toLowerCase() !== 'all') {
+        alert('Please type "all" or "single"');
+        return;
+      }
+    } else {
+      if (!confirm(`Cancel ${djName}'s set at ${slotTime}?`)) return;
+    }
 
     setCancellingSlotId(slot.id);
     setError(null);
@@ -539,7 +572,7 @@ export default function ManageEventPage() {
       const response = await fetch(`/api/bookings/${slot.booking.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username, singleSlot: confirmSingleSlot }),
       });
 
       if (!response.ok) {
@@ -560,6 +593,108 @@ export default function ManageEventPage() {
       setError(err instanceof Error ? err.message : 'Failed to cancel booking');
     } finally {
       setCancellingSlotId(null);
+    }
+  };
+
+  const handleImageUpload = async (file: File): Promise<string | null> => {
+    if (!event) return null;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('eventId', event.id);
+
+    try {
+      const response = await fetch('/api/events/upload-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+
+      const result = await response.json();
+      return result.imageUrl;
+    } catch (err) {
+      console.error('Failed to upload image:', err);
+      throw err;
+    }
+  };
+
+  const handleEditSubmit = async (data: EventFormData, publish: boolean) => {
+    if (!event) return;
+
+    setEditLoading(true);
+    setError(null);
+
+    try {
+      const username = sdkUsername || user?.username;
+
+      // Build update payload
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const updatePayload: Record<string, any> = {
+        username,
+        title: data.title,
+        description: data.description || null,
+        imageUrl: data.imageUrl,
+        allowConsecutiveSlots: data.allowConsecutiveSlots,
+        maxConsecutiveSlots: data.maxConsecutiveSlots,
+        allowB2B: data.allowB2B,
+      };
+
+      // Only include time/date changes for draft events
+      if (event.status === 'draft') {
+        const eventDate = new Date(`${data.eventDate}T00:00:00`);
+        const startTime = new Date(`${data.eventDate}T${data.startTime}`);
+        const endTime = new Date(`${data.eventDate}T${data.endTime}`);
+
+        updatePayload.eventDate = eventDate.toISOString();
+        updatePayload.startTime = startTime.toISOString();
+        updatePayload.endTime = endTime.toISOString();
+        updatePayload.slotDurationMinutes = data.slotDurationMinutes;
+      }
+
+      const response = await fetch(`/api/host/events/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload),
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to update event');
+      }
+
+      // If publish was requested and event is draft, publish it
+      if (publish && event.status === 'draft') {
+        const publishResponse = await fetch(`/api/host/events/${id}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username }),
+        });
+
+        if (!publishResponse.ok) {
+          const result = await publishResponse.json();
+          throw new Error(result.error || 'Failed to publish event');
+        }
+      }
+
+      // Refresh event data and exit edit mode
+      const refreshUrl = username 
+        ? `/api/host/events/${id}?username=${encodeURIComponent(username)}`
+        : `/api/host/events/${id}`;
+      const refreshResponse = await fetch(refreshUrl);
+      if (refreshResponse.ok) {
+        const result = await refreshResponse.json();
+        setEvent(result.event);
+        setSlots(result.slots || []);
+      }
+
+      setIsEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update event');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -606,6 +741,60 @@ export default function ManageEventPage() {
 
   const bookedSlots = slots.filter((s) => s.status === 'booked').length;
   const availableSlots = slots.filter((s) => s.status === 'available').length;
+
+  // Convert event to form data format
+  const getInitialFormData = (): Partial<EventFormData> => {
+    const eventDateObj = new Date(event.eventDate);
+    const startTimeObj = new Date(event.startTime);
+    const endTimeObj = new Date(event.endTime);
+
+    return {
+      title: event.title,
+      description: event.description || '',
+      imageUrl: event.imageUrl,
+      eventDate: eventDateObj.toISOString().split('T')[0],
+      startTime: startTimeObj.toTimeString().slice(0, 5),
+      endTime: endTimeObj.toTimeString().slice(0, 5),
+      slotDurationMinutes: event.slotDurationMinutes as 20 | 30 | 60,
+      allowConsecutiveSlots: event.allowConsecutiveSlots,
+      maxConsecutiveSlots: event.maxConsecutiveSlots,
+      allowB2B: event.allowB2B,
+    };
+  };
+
+  // If in edit mode, show the form
+  if (isEditing) {
+    return (
+      <AppLayout title={`Edit: ${event.title} | DJ Tap-In Queue`}>
+        <PageContainer>
+          <BackButton onClick={() => setIsEditing(false)}>
+            <ArrowLeftIcon />
+            Cancel Editing
+          </BackButton>
+
+          <EventHeader>
+            <StatusBadge $status={event.status}>{event.status}</StatusBadge>
+            <EventTitle>Edit Event</EventTitle>
+            {event.status !== 'draft' && (
+              <EventMeta style={{ color: 'rgba(255, 193, 7, 0.8)' }}>
+                Note: Date, time, and duration cannot be changed for published events
+              </EventMeta>
+            )}
+          </EventHeader>
+
+          <EventForm
+            initialData={getInitialFormData()}
+            onSubmit={handleEditSubmit}
+            onImageUpload={handleImageUpload}
+            loading={editLoading}
+            isEdit={true}
+          />
+
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+        </PageContainer>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout title={`${event.title} | DJ Tap-In Queue`}>
@@ -681,6 +870,13 @@ export default function ManageEventPage() {
               {shareFeedback && <ShareFeedback>{shareFeedback}</ShareFeedback>}
             </ShareButton>
           )}
+          <ActionButton
+            $variant="secondary"
+            onClick={() => setIsEditing(true)}
+            disabled={actionLoading}
+          >
+            Edit Event
+          </ActionButton>
           {event.status === 'draft' && (
             <ActionButton
               $variant="primary"

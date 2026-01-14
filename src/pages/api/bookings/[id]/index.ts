@@ -266,6 +266,7 @@ export default async function handler(
   if (req.method === 'DELETE') {
     try {
       const deleteUsername = req.body?.username;
+      const singleSlot = req.body?.singleSlot === true; // Cancel only this slot, not related ones
       const userId = deleteUsername 
         ? await getUserIdFromUsername(deleteUsername) 
         : null;
@@ -283,6 +284,15 @@ export default async function handler(
         if (!isOwner && !isHost) {
           return res.status(403).json({ error: 'Not authorized' });
         }
+      }
+
+      if (singleSlot) {
+        // Cancel only this single slot/booking
+        await cancelBooking(id);
+        return res.status(200).json({ 
+          success: true,
+          cancelledCount: 1,
+        });
       }
 
       // Find all related bookings and cancel them all

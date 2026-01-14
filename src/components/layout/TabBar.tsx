@@ -1,6 +1,9 @@
 import styled from 'styled-components';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useUser } from '@/contexts/UserContext';
+
+const ADMIN_USERNAME = 'WiredInSamurai';
 
 const TabBarContainer = styled.nav`
   position: fixed;
@@ -104,6 +107,12 @@ const AccountIcon = () => (
   </svg>
 );
 
+const AdminIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
 interface Tab {
   href: string;
   label: string;
@@ -111,7 +120,7 @@ interface Tab {
   matchPaths: string[];
 }
 
-const tabs: Tab[] = [
+const baseTabs: Tab[] = [
   {
     href: '/events',
     label: 'Events',
@@ -138,8 +147,19 @@ const tabs: Tab[] = [
   },
 ];
 
+const adminTab: Tab = {
+  href: '/admin',
+  label: 'Admin',
+  icon: <AdminIcon />,
+  matchPaths: ['/admin'],
+};
+
 export default function TabBar() {
   const router = useRouter();
+  const { user } = useUser();
+  
+  const isAdmin = user?.username === ADMIN_USERNAME;
+  const tabs = isAdmin ? [...baseTabs, adminTab] : baseTabs;
   
   const isActive = (tab: Tab) => {
     return tab.matchPaths.some(path => router.pathname.startsWith(path));

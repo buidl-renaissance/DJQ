@@ -83,7 +83,17 @@ export default async function handler(
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const hostId = userResults[0].id;
+      const user = userResults[0];
+
+      // Check if user is active
+      if (user.status === 'inactive') {
+        return res.status(403).json({ error: 'Your account is deactivated. Please reactivate your account to create events.' });
+      }
+      if (user.status === 'banned') {
+        return res.status(403).json({ error: 'Your account has been banned.' });
+      }
+
+      const hostId = user.id;
 
       const event = await createEvent({
         hostId,

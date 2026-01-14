@@ -521,10 +521,19 @@ export default function BookingDetailPage() {
   const handleSendInvite = async (targetUserId: string) => {
     setInviteLoading(true);
     try {
+      // Find the target user's username from the available users list
+      const targetUser = availableUsers.find(u => u.id === targetUserId);
+      if (!targetUser) {
+        throw new Error('Target user not found');
+      }
+
       const response = await fetch(`/api/bookings/${id}/b2b`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId }),
+        body: JSON.stringify({ 
+          username: user?.username,
+          targetUsername: targetUser.username,
+        }),
       });
 
       if (!response.ok) {

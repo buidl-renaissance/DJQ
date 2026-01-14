@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '@/db/drizzle';
 import { timeSlots, slotBookings, users, b2bRequests } from '@/db/schema';
-import { getEventById, deleteEvent } from '@/db/events';
+import { getEventById, deleteEvent, updateEvent } from '@/db/events';
 import { eq, and } from 'drizzle-orm';
 
 export default async function handler(
@@ -115,6 +115,57 @@ export default async function handler(
     } catch (error) {
       console.error('Failed to fetch event:', error);
       return res.status(500).json({ error: 'Failed to fetch event' });
+    }
+  }
+
+  if (req.method === 'PUT') {
+    try {
+      const event = await getEventById(id);
+      if (!event) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      const { username: bodyUsername, ...updateData } = req.body;
+      const usernameToCheck = bodyUsername || username;
+
+      // Verify ownership via username
+      if (usernameToCheck && typeof usernameToCheck === 'string') {
+        const userResults = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, usernameToCheck))
+          .limit(1);
+        
+        if (userResults.length === 0 || event.hostId !== userResults[0].id) {
+          return res.status(403).json({ error: 'Not authorized' });
+        }
+      }
+
+      // Build update input - only include fields that were provided
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const updateInput: Record<string, any> = {};
+      
+      if (updateData.title !== undefined) updateInput.title = updateData.title;
+      if (updateData.description !== undefined) updateInput.description = updateData.description;
+      if (updateData.imageUrl !== undefined) updateInput.imageUrl = updateData.imageUrl;
+      if (updateData.allowConsecutiveSlots !== undefined) updateInput.allowConsecutiveSlots = updateData.allowConsecutiveSlots;
+      if (updateData.maxConsecutiveSlots !== undefined) updateInput.maxConsecutiveSlots = updateData.maxConsecutiveSlots;
+      if (updateData.allowB2B !== undefined) updateInput.allowB2B = updateData.allowB2B;
+      
+      // Only allow time/date changes for draft events (slots not yet created)
+      if (event.status === 'draft') {
+        if (updateData.eventDate !== undefined) updateInput.eventDate = new Date(updateData.eventDate);
+        if (updateData.startTime !== undefined) updateInput.startTime = new Date(updateData.startTime);
+        if (updateData.endTime !== undefined) updateInput.endTime = new Date(updateData.endTime);
+        if (updateData.slotDurationMinutes !== undefined) updateInput.slotDurationMinutes = updateData.slotDurationMinutes;
+      }
+
+      const updatedEvent = await updateEvent(id, updateInput);
+      
+      return res.status(200).json({ event: updatedEvent });
+    } catch (error) {
+      console.error('Failed to update event:', error);
+      return res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update event' });
     }
   }
 

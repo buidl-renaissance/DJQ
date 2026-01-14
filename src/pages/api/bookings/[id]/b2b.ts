@@ -41,6 +41,16 @@ export default async function handler(
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const user = userResults[0];
+
+    // Check if requesting user is active
+    if (user.status === 'inactive') {
+      return res.status(403).json({ error: 'Your account is deactivated. Please reactivate your account to send B2B requests.' });
+    }
+    if (user.status === 'banned') {
+      return res.status(403).json({ error: 'Your account has been banned.' });
+    }
+
     const targetUserResults = await db
       .select()
       .from(users)
@@ -51,8 +61,15 @@ export default async function handler(
       return res.status(404).json({ error: 'Target user not found' });
     }
 
-    const userId = userResults[0].id;
-    const targetUserId = targetUserResults[0].id;
+    const targetUser = targetUserResults[0];
+
+    // Check if target user is active
+    if (targetUser.status === 'inactive' || targetUser.status === 'banned') {
+      return res.status(400).json({ error: 'The target user is not available for B2B requests.' });
+    }
+
+    const userId = user.id;
+    const targetUserId = targetUser.id;
 
     const booking = await getBookingById(id);
     if (!booking) {
