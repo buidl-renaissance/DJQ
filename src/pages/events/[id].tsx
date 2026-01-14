@@ -393,7 +393,8 @@ export default function EventDetailPage() {
         setSelectedSlotIds(validSlotIds);
         
         // Clean up URL by removing the slots param (keep user on clean URL)
-        const { slots: _, ...restQuery } = router.query;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { slots: _slotsParam, ...restQuery } = router.query;
         router.replace(
           { pathname: router.pathname, query: restQuery },
           undefined,
@@ -401,7 +402,7 @@ export default function EventDetailPage() {
         );
       }
     }
-  }, [router.isReady, router.query, slots, router.pathname]);
+  }, [router, slots]);
 
   // Handle slot click
   const handleSlotClickWithCount = (slotId: string) => {
