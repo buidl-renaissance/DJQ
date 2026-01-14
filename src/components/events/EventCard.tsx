@@ -6,7 +6,6 @@ const Card = styled.a`
   background-color: rgba(26, 26, 26, 0.7);
   border: 1px solid rgba(57, 255, 20, 0.2);
   border-radius: 12px;
-  padding: 1rem;
   text-decoration: none;
   color: inherit;
   transition: all 0.3s ease;
@@ -29,11 +28,46 @@ const Card = styled.a`
     background: linear-gradient(135deg, rgba(57, 255, 20, 0.05), transparent);
     opacity: 0;
     transition: opacity 0.3s ease;
+    z-index: 1;
+    pointer-events: none;
   }
   
   &:hover::before {
     opacity: 1;
   }
+`;
+
+const CardImage = styled.div`
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  overflow: hidden;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60%;
+    background: linear-gradient(to top, rgba(26, 26, 26, 1), transparent);
+    pointer-events: none;
+  }
+`;
+
+const CardContent = styled.div<{ $hasImage: boolean }>`
+  padding: 1rem;
+  ${({ $hasImage }) => $hasImage && `
+    margin-top: -2rem;
+    position: relative;
+    z-index: 2;
+  `}
 `;
 
 const CardHeader = styled.div`
@@ -181,6 +215,7 @@ const ClockIcon = () => (
 export interface EventCardProps {
   id: string;
   title: string;
+  imageUrl?: string | null;
   eventDate: Date;
   startTime: Date;
   endTime: Date;
@@ -195,6 +230,7 @@ export interface EventCardProps {
 export default function EventCard({
   id,
   title,
+  imageUrl,
   eventDate,
   startTime,
   endTime,
@@ -224,35 +260,42 @@ export default function EventCard({
   return (
     <Link href={`/events/${id}`} passHref legacyBehavior>
       <Card>
-        <CardHeader>
-          <Title>{title}</Title>
-          <StatusBadge $status={status}>{status}</StatusBadge>
-        </CardHeader>
-        
-        <MetaRow>
-          <MetaItem>
-            <CalendarIcon />
-            {formatDate(eventDate)}
-          </MetaItem>
-          <MetaItem>
-            <ClockIcon />
-            {formatTime(startTime)} - {formatTime(endTime)}
-          </MetaItem>
-        </MetaRow>
-        
-        <MetaRow>
-          <MetaItem>{slotDurationMinutes} min sets</MetaItem>
-        </MetaRow>
-        
-        <BadgeRow>
-          {allowB2B && <FeatureBadge>B2B</FeatureBadge>}
-          {allowConsecutiveSlots && <FeatureBadge>Multi-slot</FeatureBadge>}
-        </BadgeRow>
-        
-        <AvailableSlots>
-          <SlotCount $hasAvailable={availableSlots > 0}>{availableSlots}</SlotCount>
-          <SlotLabel>of {totalSlots} slots open</SlotLabel>
-        </AvailableSlots>
+        {imageUrl && (
+          <CardImage>
+            <img src={imageUrl} alt={title} />
+          </CardImage>
+        )}
+        <CardContent $hasImage={!!imageUrl}>
+          <CardHeader>
+            <Title>{title}</Title>
+            <StatusBadge $status={status}>{status}</StatusBadge>
+          </CardHeader>
+          
+          <MetaRow>
+            <MetaItem>
+              <CalendarIcon />
+              {formatDate(eventDate)}
+            </MetaItem>
+            <MetaItem>
+              <ClockIcon />
+              {formatTime(startTime)} - {formatTime(endTime)}
+            </MetaItem>
+          </MetaRow>
+          
+          <MetaRow>
+            <MetaItem>{slotDurationMinutes} min sets</MetaItem>
+          </MetaRow>
+          
+          <BadgeRow>
+            {allowB2B && <FeatureBadge>B2B</FeatureBadge>}
+            {allowConsecutiveSlots && <FeatureBadge>Multi-slot</FeatureBadge>}
+          </BadgeRow>
+          
+          <AvailableSlots>
+            <SlotCount $hasAvailable={availableSlots > 0}>{availableSlots}</SlotCount>
+            <SlotLabel>of {totalSlots} slots open</SlotLabel>
+          </AvailableSlots>
+        </CardContent>
       </Card>
     </Link>
   );

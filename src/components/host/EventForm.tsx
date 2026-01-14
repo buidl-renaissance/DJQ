@@ -348,6 +348,25 @@ export default function EventForm({
   const [imagePreview, setImagePreview] = useState<string | null>(initialData?.imageUrl || null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
+  // Sync form data when initialData changes (e.g., when entering edit mode)
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        title: initialData.title || '',
+        description: initialData.description || '',
+        imageUrl: initialData.imageUrl || null,
+        eventDate: initialData.eventDate || '',
+        startTime: initialData.startTime || '',
+        endTime: initialData.endTime || '',
+        slotDurationMinutes: initialData.slotDurationMinutes || 60,
+        allowConsecutiveSlots: initialData.allowConsecutiveSlots || false,
+        maxConsecutiveSlots: initialData.maxConsecutiveSlots || 2,
+        allowB2B: initialData.allowB2B ?? true,
+      });
+      setImagePreview(initialData.imageUrl || null);
+    }
+  }, [initialData?.eventDate, initialData?.startTime, initialData?.endTime, initialData?.title, initialData?.description, initialData?.imageUrl, initialData?.slotDurationMinutes, initialData?.allowConsecutiveSlots, initialData?.maxConsecutiveSlots, initialData?.allowB2B]);
+
   useEffect(() => {
     if (formData.startTime && formData.endTime && formData.eventDate) {
       const start = new Date(`${formData.eventDate}T${formData.startTime}`);
