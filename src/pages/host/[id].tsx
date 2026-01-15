@@ -809,9 +809,8 @@ export default function ManageEventPage() {
         <EventHeader>
           <StatusBadge $status={event.status}>{event.status}</StatusBadge>
           <EventTitle>{event.title}</EventTitle>
-          <EventMeta>
-            {formatDate(event.eventDate)} · {formatTime(event.startTime)} - {formatTime(event.endTime)}
-          </EventMeta>
+          <EventMeta>{formatDate(event.eventDate)}</EventMeta>
+          <EventMeta>{formatTime(event.startTime)} - {formatTime(event.endTime)}</EventMeta>
         </EventHeader>
 
         <Section>
