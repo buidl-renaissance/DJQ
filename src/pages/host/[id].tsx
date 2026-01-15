@@ -642,15 +642,17 @@ export default function ManageEventPage() {
         allowB2B: data.allowB2B,
       };
 
-      // Only include time/date changes for draft events
-      if (event.status === 'draft') {
-        const eventDate = new Date(`${data.eventDate}T00:00:00`);
-        const startTime = new Date(`${data.eventDate}T${data.startTime}`);
-        const endTime = new Date(`${data.eventDate}T${data.endTime}`);
+      // Include date/time changes for all events
+      const eventDate = new Date(`${data.eventDate}T00:00:00`);
+      const startTime = new Date(`${data.eventDate}T${data.startTime}`);
+      const endTime = new Date(`${data.eventDate}T${data.endTime}`);
 
-        updatePayload.eventDate = eventDate.toISOString();
-        updatePayload.startTime = startTime.toISOString();
-        updatePayload.endTime = endTime.toISOString();
+      updatePayload.eventDate = eventDate.toISOString();
+      updatePayload.startTime = startTime.toISOString();
+      updatePayload.endTime = endTime.toISOString();
+
+      // Only include slot duration changes for draft events
+      if (event.status === 'draft') {
         updatePayload.slotDurationMinutes = data.slotDurationMinutes;
       }
 
@@ -777,7 +779,7 @@ export default function ManageEventPage() {
             <EventTitle>Edit Event</EventTitle>
             {event.status !== 'draft' && (
               <EventMeta style={{ color: 'rgba(255, 193, 7, 0.8)' }}>
-                Note: Date, time, and duration cannot be changed for published events
+                Note: Slot duration cannot be changed for published events
               </EventMeta>
             )}
           </EventHeader>

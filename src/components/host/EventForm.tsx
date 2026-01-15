@@ -351,6 +351,11 @@ export default function EventForm({
   // Sync form data when initialData changes (e.g., when entering edit mode)
   useEffect(() => {
     if (initialData) {
+      console.log('[DEBUG] EventForm useEffect - syncing initialData:', {
+        eventDate: initialData.eventDate,
+        startTime: initialData.startTime,
+        endTime: initialData.endTime,
+      });
       setFormData({
         title: initialData.title || '',
         description: initialData.description || '',
@@ -385,6 +390,7 @@ export default function EventForm({
   }, [formData.startTime, formData.endTime, formData.eventDate, formData.slotDurationMinutes]);
 
   const handleChange = (field: keyof EventFormData, value: string | number | boolean | null) => {
+    console.log('[DEBUG] EventForm handleChange:', field, value);
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 

@@ -2,7 +2,9 @@ import styled from 'styled-components';
 import Link from 'next/link';
 
 const Card = styled.a`
-  display: block;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
   background-color: rgba(26, 26, 26, 0.7);
   border: 1px solid rgba(57, 255, 20, 0.2);
   border-radius: 12px;
@@ -37,43 +39,34 @@ const Card = styled.a`
   }
 `;
 
+const CardMain = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+`;
+
 const CardImage = styled.div`
-  width: 100%;
-  aspect-ratio: 16 / 9;
+  width: 100px;
+  min-width: 100px;
+  flex-shrink: 0;
   position: relative;
   overflow: hidden;
+  border-radius: 8px;
   
   img {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 60%;
-    background: linear-gradient(to top, rgba(26, 26, 26, 1), transparent);
-    pointer-events: none;
+    height: auto;
+    display: block;
   }
 `;
 
-const CardContent = styled.div<{ $hasImage: boolean }>`
-  padding: 1rem;
-  ${({ $hasImage }) => $hasImage && `
-    margin-top: -2rem;
-    position: relative;
-    z-index: 2;
-  `}
+const CardContent = styled.div`
+  flex: 1;
+  min-width: 0;
 `;
 
 const CardHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
   margin-bottom: 0.75rem;
 `;
 
@@ -83,8 +76,6 @@ const Title = styled.h3`
   font-weight: 700;
   color: ${({ theme }) => theme.colors.contrast};
   margin: 0;
-  flex: 1;
-  margin-right: 0.5rem;
 `;
 
 const StatusBadge = styled.span<{ $status: string }>`
@@ -169,13 +160,19 @@ const FeatureBadge = styled.span`
   border: 1px solid rgba(57, 255, 20, 0.2);
 `;
 
+const CardFooter = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(224, 224, 224, 0.1);
+`;
+
 const AvailableSlots = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(224, 224, 224, 0.1);
 `;
 
 const SlotCount = styled.span<{ $hasAvailable: boolean }>`
@@ -260,42 +257,46 @@ export default function EventCard({
   return (
     <Link href={`/events/${id}`} passHref legacyBehavior>
       <Card>
-        {imageUrl && (
-          <CardImage>
-            <img src={imageUrl} alt={title} />
-          </CardImage>
-        )}
-        <CardContent $hasImage={!!imageUrl}>
-          <CardHeader>
-            <Title>{title}</Title>
-            <StatusBadge $status={status}>{status}</StatusBadge>
-          </CardHeader>
-          
-          <MetaRow>
-            <MetaItem>
-              <CalendarIcon />
-              {formatDate(eventDate)}
-            </MetaItem>
-            <MetaItem>
-              <ClockIcon />
-              {formatTime(startTime)} - {formatTime(endTime)}
-            </MetaItem>
-          </MetaRow>
-          
-          <MetaRow>
-            <MetaItem>{slotDurationMinutes} min sets</MetaItem>
-          </MetaRow>
-          
-          <BadgeRow>
-            {allowB2B && <FeatureBadge>B2B</FeatureBadge>}
-            {allowConsecutiveSlots && <FeatureBadge>Multi-slot</FeatureBadge>}
-          </BadgeRow>
-          
+        <CardMain>
+          <CardContent>
+            <CardHeader>
+              <Title>{title}</Title>
+            </CardHeader>
+            
+            <MetaRow>
+              <MetaItem>
+                <CalendarIcon />
+                {formatDate(eventDate)}
+              </MetaItem>
+              <MetaItem>
+                <ClockIcon />
+                {formatTime(startTime)} - {formatTime(endTime)}
+              </MetaItem>
+            </MetaRow>
+            
+            <MetaRow>
+              <MetaItem>{slotDurationMinutes} min sets</MetaItem>
+            </MetaRow>
+            
+            <BadgeRow>
+              {allowB2B && <FeatureBadge>B2B</FeatureBadge>}
+              {allowConsecutiveSlots && <FeatureBadge>Multi-slot</FeatureBadge>}
+            </BadgeRow>
+          </CardContent>
+          {imageUrl && (
+            <CardImage>
+              <img src={imageUrl} alt={title} />
+            </CardImage>
+          )}
+        </CardMain>
+        
+        <CardFooter>
           <AvailableSlots>
             <SlotCount $hasAvailable={availableSlots > 0}>{availableSlots}</SlotCount>
             <SlotLabel>of {totalSlots} slots open</SlotLabel>
           </AvailableSlots>
-        </CardContent>
+          <StatusBadge $status={status}>{status}</StatusBadge>
+        </CardFooter>
       </Card>
     </Link>
   );

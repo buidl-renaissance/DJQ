@@ -152,11 +152,13 @@ export default async function handler(
       if (updateData.maxConsecutiveSlots !== undefined) updateInput.maxConsecutiveSlots = updateData.maxConsecutiveSlots;
       if (updateData.allowB2B !== undefined) updateInput.allowB2B = updateData.allowB2B;
       
-      // Only allow time/date changes for draft events (slots not yet created)
+      // Allow date/time changes for all events
+      if (updateData.eventDate !== undefined) updateInput.eventDate = new Date(updateData.eventDate);
+      if (updateData.startTime !== undefined) updateInput.startTime = new Date(updateData.startTime);
+      if (updateData.endTime !== undefined) updateInput.endTime = new Date(updateData.endTime);
+      
+      // Only allow slot duration changes for draft events (slots not yet created)
       if (event.status === 'draft') {
-        if (updateData.eventDate !== undefined) updateInput.eventDate = new Date(updateData.eventDate);
-        if (updateData.startTime !== undefined) updateInput.startTime = new Date(updateData.startTime);
-        if (updateData.endTime !== undefined) updateInput.endTime = new Date(updateData.endTime);
         if (updateData.slotDurationMinutes !== undefined) updateInput.slotDurationMinutes = updateData.slotDurationMinutes;
       }
 
