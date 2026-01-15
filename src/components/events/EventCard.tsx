@@ -179,9 +179,9 @@ const SlotCount = styled.span<{ $hasAvailable: boolean }>`
   font-family: ${({ theme }) => theme.fonts.heading};
   font-size: 1.25rem;
   font-weight: 700;
-  color: ${({ $hasAvailable, theme }) => 
+  color: ${({ $hasAvailable, theme }) =>
     $hasAvailable ? theme.colors.accent : 'rgba(224, 224, 224, 0.4)'};
-  text-shadow: ${({ $hasAvailable, theme }) => 
+  text-shadow: ${({ $hasAvailable, theme }) =>
     $hasAvailable ? `0 0 10px ${theme.colors.accent}` : 'none'};
 `;
 
@@ -245,7 +245,7 @@ export default function EventCard({
       day: 'numeric',
     });
   };
-  
+
   const formatTime = (date: Date) => {
     return new Date(date).toLocaleTimeString('en-US', {
       hour: 'numeric',
@@ -253,7 +253,7 @@ export default function EventCard({
       hour12: true,
     });
   };
-  
+
   return (
     <Link href={`/events/${id}`} passHref legacyBehavior>
       <Card>
@@ -262,22 +262,24 @@ export default function EventCard({
             <CardHeader>
               <Title>{title}</Title>
             </CardHeader>
-            
+
             <MetaRow>
               <MetaItem>
                 <CalendarIcon />
                 {formatDate(eventDate)}
               </MetaItem>
+            </MetaRow>
+            <MetaRow>
               <MetaItem>
                 <ClockIcon />
                 {formatTime(startTime)} - {formatTime(endTime)}
               </MetaItem>
             </MetaRow>
-            
+
             <MetaRow>
               <MetaItem>{slotDurationMinutes} min sets</MetaItem>
             </MetaRow>
-            
+
             <BadgeRow>
               {allowB2B && <FeatureBadge>B2B</FeatureBadge>}
               {allowConsecutiveSlots && <FeatureBadge>Multi-slot</FeatureBadge>}
@@ -289,7 +291,7 @@ export default function EventCard({
             </CardImage>
           )}
         </CardMain>
-        
+
         <CardFooter>
           <AvailableSlots>
             <SlotCount $hasAvailable={availableSlots > 0}>{availableSlots}</SlotCount>
