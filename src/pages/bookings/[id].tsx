@@ -214,6 +214,15 @@ const B2BAvatar = styled.div`
   font-size: 1.2rem;
   font-weight: 700;
   color: ${({ theme }) => theme.colors.background};
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid ${({ theme }) => theme.colors.accent};
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 `;
 
 const B2BInfo = styled.div`
@@ -400,17 +409,20 @@ interface BookingData {
     id: string;
     displayName: string;
     username: string;
+    pfpUrl?: string | null;
   } | null;
   b2bPartners: {
     id: string;
     displayName: string;
     username: string;
+    pfpUrl?: string | null;
   }[];
   pendingB2BRequests: {
     id: string;
     targetUser: {
       displayName: string;
       username: string;
+      pfpUrl?: string | null;
     };
   }[];
   allowB2B: boolean;
@@ -668,10 +680,33 @@ export default function BookingDetailPage() {
               </B2BSlotIndicator>
               
               <B2BPartnersList>
-                {/* Show existing partners */}
+                {/* Show the original booker first */}
+                {booking.booker && (
+                  <B2BStatus>
+                    <B2BAvatar>
+                      {booking.booker.pfpUrl ? (
+                        <img src={booking.booker.pfpUrl} alt={booking.booker.displayName} />
+                      ) : (
+                        getInitials(booking.booker.displayName)
+                      )}
+                    </B2BAvatar>
+                    <B2BInfo>
+                      <B2BName>{booking.booker.displayName}</B2BName>
+                      <B2BLabel>@{booking.booker.username}</B2BLabel>
+                    </B2BInfo>
+                  </B2BStatus>
+                )}
+
+                {/* Show B2B partners */}
                 {booking.b2bPartners.map((partner) => (
                   <B2BStatus key={partner.id}>
-                    <B2BAvatar>{getInitials(partner.displayName)}</B2BAvatar>
+                    <B2BAvatar>
+                      {partner.pfpUrl ? (
+                        <img src={partner.pfpUrl} alt={partner.displayName} />
+                      ) : (
+                        getInitials(partner.displayName)
+                      )}
+                    </B2BAvatar>
                     <B2BInfo>
                       <B2BName>{partner.displayName}</B2BName>
                       <B2BLabel>@{partner.username}</B2BLabel>
