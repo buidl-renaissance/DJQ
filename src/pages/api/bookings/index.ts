@@ -90,7 +90,7 @@ export default async function handler(
     }
 
     // Get bookings where user is a B2B partner
-    let b2bPartnerBookings: BookingWithSlot[] = [];
+    const b2bPartnerBookings: BookingWithSlot[] = [];
     if (b2bBookingIds.length > 0) {
       const b2bBookingsRaw = await db
         .select({
