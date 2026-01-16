@@ -213,7 +213,15 @@ export default function BookingsPage() {
       });
 
       if (response.ok) {
+        // Remove from pending requests
         setB2BRequests((prev) => prev.filter((r) => r.id !== requestId));
+        
+        // Refresh bookings to show the newly accepted B2B set
+        const bookingsRes = await fetch(`/api/bookings?username=${encodeURIComponent(username)}`);
+        if (bookingsRes.ok) {
+          const bookingsData = await bookingsRes.json();
+          setBookings(bookingsData.bookings || []);
+        }
       }
     } catch (err) {
       console.error('Failed to accept B2B request:', err);
