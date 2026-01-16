@@ -516,6 +516,35 @@ export async function cancelB2BRequest(
 }
 
 /**
+ * Leave an accepted B2B partnership (by either party)
+ */
+export async function leaveB2BPartnership(
+  requestId: string,
+  leavingUserId: string
+): Promise<B2BRequest | null> {
+  const request = await getB2BRequestById(requestId);
+  if (!request) return null;
+
+  if (request.status !== 'accepted') {
+    throw new Error('B2B request is not accepted');
+  }
+
+  // Either the requester or requestee can leave
+  if (request.requesterId !== leavingUserId && request.requesteeId !== leavingUserId) {
+    throw new Error('Only participants can leave this B2B partnership');
+  }
+
+  const now = new Date();
+
+  await db
+    .update(b2bRequests)
+    .set({ status: 'cancelled', updatedAt: now })
+    .where(eq(b2bRequests.id, requestId));
+
+  return getB2BRequestById(requestId);
+}
+
+/**
  * Get B2B partner for a booking (if accepted)
  */
 export async function getB2BPartnerForBooking(bookingId: string): Promise<string | null> {

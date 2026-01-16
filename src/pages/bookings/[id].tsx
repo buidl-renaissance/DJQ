@@ -416,6 +416,7 @@ interface BookingData {
     displayName: string;
     username: string;
     pfpUrl?: string | null;
+    b2bRequestId?: string;
   }[];
   pendingB2BRequests: {
     id: string;
@@ -589,6 +590,45 @@ export default function BookingDetailPage() {
     }
   };
 
+  const handleLeaveB2B = async () => {
+    if (!booking || !user) return;
+
+    // Find the B2B request ID for the current user
+    const currentUserAsPartner = booking.b2bPartners.find(p => p.id === user.id);
+    const b2bRequestId = currentUserAsPartner?.b2bRequestId;
+
+    if (!b2bRequestId) {
+      setError('Could not find B2B request to leave');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to leave this B2B set? The original booker will keep their slot.')) return;
+
+    setCancelLoading(true);
+    try {
+      const response = await fetch(`/api/b2b/${b2bRequestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'leave', username: user.username }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to leave B2B');
+      }
+
+      router.push('/bookings');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to leave B2B');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  // Check if current user is a B2B partner (not the original booker)
+  const isB2BPartner = booking && user && booking.booker?.id !== user.id && 
+    booking.b2bPartners.some(p => p.id === user.id);
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -750,13 +790,19 @@ export default function BookingDetailPage() {
         {booking.status === 'confirmed' && (
           <Section>
             <SectionTitle>Actions</SectionTitle>
-            <CancelButton onClick={handleCancelBooking} disabled={cancelLoading}>
-              {cancelLoading 
-                ? 'Cancelling...' 
-                : booking.slotCount && booking.slotCount > 1 
-                  ? `Cancel Set (${booking.slotCount} slots)`
-                  : 'Cancel Booking'}
-            </CancelButton>
+            {isB2BPartner ? (
+              <CancelButton onClick={handleLeaveB2B} disabled={cancelLoading}>
+                {cancelLoading ? 'Leaving...' : 'Leave B2B Set'}
+              </CancelButton>
+            ) : (
+              <CancelButton onClick={handleCancelBooking} disabled={cancelLoading}>
+                {cancelLoading 
+                  ? 'Cancelling...' 
+                  : booking.slotCount && booking.slotCount > 1 
+                    ? `Cancel Set (${booking.slotCount} slots)`
+                    : 'Cancel Booking'}
+              </CancelButton>
+            )}
           </Section>
         )}
 

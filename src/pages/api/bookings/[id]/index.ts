@@ -171,7 +171,7 @@ export default async function handler(
 
       // Check for B2B partners on any of the bookings (up to 2 partners = 3 total participants)
       const bookingIds = relatedBookings.map(r => r.booking.id);
-      const b2bPartners: { id: string; displayName: string; username: string; pfpUrl: string | null }[] = [];
+      const b2bPartners: { id: string; displayName: string; username: string; pfpUrl: string | null; b2bRequestId: string }[] = [];
       
       const b2bResults = await db
         .select({
@@ -203,6 +203,7 @@ export default async function handler(
             displayName: partnerResult[0].displayName || partnerResult[0].name || 'Unknown',
             username: partnerResult[0].username || 'unknown',
             pfpUrl: partnerResult[0].profilePicture || partnerResult[0].pfpUrl || null,
+            b2bRequestId: b2bResult.request.id,
           });
         }
       }

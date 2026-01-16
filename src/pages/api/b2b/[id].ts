@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { acceptB2BRequest, declineB2BRequest, getB2BRequestById } from '@/db/bookings';
+import { acceptB2BRequest, declineB2BRequest, getB2BRequestById, leaveB2BPartnership } from '@/db/bookings';
 import { db } from '@/db/drizzle';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -25,7 +25,7 @@ export default async function handler(
       return res.status(400).json({ error: 'Username is required' });
     }
     
-    if (!action || !['accept', 'decline'].includes(action)) {
+    if (!action || !['accept', 'decline', 'leave'].includes(action)) {
       return res.status(400).json({ error: 'Invalid action' });
     }
 
@@ -47,16 +47,23 @@ export default async function handler(
       return res.status(404).json({ error: 'Request not found' });
     }
 
-    // Verify user is the requestee
-    if (request.requesteeId !== userId) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
-
     let updatedRequest;
-    if (action === 'accept') {
-      updatedRequest = await acceptB2BRequest(id, userId);
+    if (action === 'leave') {
+      // Either party can leave an accepted B2B partnership
+      if (request.requesterId !== userId && request.requesteeId !== userId) {
+        return res.status(403).json({ error: 'Not authorized' });
+      }
+      updatedRequest = await leaveB2BPartnership(id, userId);
     } else {
-      updatedRequest = await declineB2BRequest(id, userId);
+      // Accept/decline only by requestee
+      if (request.requesteeId !== userId) {
+        return res.status(403).json({ error: 'Not authorized' });
+      }
+      if (action === 'accept') {
+        updatedRequest = await acceptB2BRequest(id, userId);
+      } else {
+        updatedRequest = await declineB2BRequest(id, userId);
+      }
     }
 
     return res.status(200).json({ request: updatedRequest });
