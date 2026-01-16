@@ -164,13 +164,14 @@ export default async function handler(
 
       const booker = bookerResult[0] ? {
         id: bookerResult[0].id,
-        displayName: bookerResult[0].displayName || 'Unknown',
+        displayName: bookerResult[0].displayName || bookerResult[0].name || 'Unknown',
         username: bookerResult[0].username || 'unknown',
+        pfpUrl: bookerResult[0].profilePicture || bookerResult[0].pfpUrl || null,
       } : null;
 
       // Check for B2B partners on any of the bookings (up to 2 partners = 3 total participants)
       const bookingIds = relatedBookings.map(r => r.booking.id);
-      const b2bPartners: { id: string; displayName: string; username: string }[] = [];
+      const b2bPartners: { id: string; displayName: string; username: string; pfpUrl: string | null }[] = [];
       
       const b2bResults = await db
         .select({
@@ -199,14 +200,15 @@ export default async function handler(
         if (partnerResult[0]) {
           b2bPartners.push({
             id: partnerResult[0].id,
-            displayName: partnerResult[0].displayName || 'Unknown',
+            displayName: partnerResult[0].displayName || partnerResult[0].name || 'Unknown',
             username: partnerResult[0].username || 'unknown',
+            pfpUrl: partnerResult[0].profilePicture || partnerResult[0].pfpUrl || null,
           });
         }
       }
 
       // Check for pending B2B requests on any booking
-      const pendingB2BRequests: { id: string; targetUser: { displayName: string; username: string } }[] = [];
+      const pendingB2BRequests: { id: string; targetUser: { displayName: string; username: string; pfpUrl: string | null } }[] = [];
       
       const pendingB2B = await db
         .select({
@@ -232,8 +234,9 @@ export default async function handler(
           pendingB2BRequests.push({
             id: pending.request.id,
             targetUser: {
-              displayName: targetResult[0].displayName || 'Unknown',
+              displayName: targetResult[0].displayName || targetResult[0].name || 'Unknown',
               username: targetResult[0].username || 'unknown',
+              pfpUrl: targetResult[0].profilePicture || targetResult[0].pfpUrl || null,
             },
           });
         }

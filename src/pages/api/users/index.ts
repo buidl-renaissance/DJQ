@@ -18,7 +18,10 @@ export default async function handler(
       .select({
         id: users.id,
         displayName: users.displayName,
+        name: users.name,
         username: users.username,
+        pfpUrl: users.pfpUrl,
+        profilePicture: users.profilePicture,
       })
       .from(users)
       .where(or(eq(users.status, 'active'), isNull(users.status)))
@@ -26,8 +29,9 @@ export default async function handler(
 
     const formattedUsers = allUsers.map((user) => ({
       id: user.id,
-      displayName: user.displayName || user.username || 'Unknown',
+      displayName: user.displayName || user.name || user.username || 'Unknown',
       username: user.username || 'unknown',
+      pfpUrl: user.profilePicture || user.pfpUrl || null,
     }));
 
     return res.status(200).json({ users: formattedUsers });

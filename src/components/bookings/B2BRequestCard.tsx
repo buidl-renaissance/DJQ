@@ -27,6 +27,16 @@ const Avatar = styled.div`
   font-size: 1rem;
   font-weight: 700;
   color: ${({ theme }) => theme.colors.background};
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid ${({ theme }) => theme.colors.accent};
+  box-shadow: 0 0 8px rgba(57, 255, 20, 0.3);
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 `;
 
 const RequestInfo = styled.div`
@@ -103,6 +113,7 @@ export interface B2BRequestCardProps {
   id: string;
   requesterName: string;
   requesterUsername?: string;
+  requesterPfpUrl?: string | null;
   eventTitle: string;
   slotTime: string;
   initiatedBy: 'booker' | 'requester';
@@ -114,6 +125,7 @@ export interface B2BRequestCardProps {
 export default function B2BRequestCard({
   requesterName,
   requesterUsername,
+  requesterPfpUrl,
   eventTitle,
   slotTime,
   initiatedBy,
@@ -137,7 +149,13 @@ export default function B2BRequestCard({
   return (
     <Card>
       <CardHeader>
-        <Avatar>{getInitials(requesterName)}</Avatar>
+        <Avatar>
+          {requesterPfpUrl ? (
+            <img src={requesterPfpUrl} alt={requesterName} />
+          ) : (
+            getInitials(requesterName)
+          )}
+        </Avatar>
         <RequestInfo>
           <RequesterName>
             {requesterName}

@@ -54,8 +54,9 @@ export default async function handler(
 
     const formattedRequests = pendingRequests.map((row) => ({
       id: row.request.id,
-      requesterName: row.requester.displayName || row.requester.username || 'Unknown',
+      requesterName: row.requester.displayName || row.requester.name || row.requester.username || 'Unknown',
       requesterUsername: row.requester.username,
+      requesterPfpUrl: row.requester.profilePicture || row.requester.pfpUrl || null,
       eventTitle: row.event.title,
       slotTime: `${new Date(row.slot.startTime).toLocaleTimeString('en-US', {
         hour: 'numeric',
