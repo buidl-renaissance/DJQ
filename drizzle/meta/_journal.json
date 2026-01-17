@@ -78,6 +78,13 @@
       "when": 1768363967270,
       "tag": "0010_square_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1768685308065,
+      "tag": "0011_dear_misty_knight",
+      "breakpoints": true
     }
   ]
 }

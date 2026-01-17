@@ -79,6 +79,8 @@ export const events = sqliteTable('events', {
   startTime: integer('startTime', { mode: 'timestamp' }).notNull(),
   endTime: integer('endTime', { mode: 'timestamp' }).notNull(),
   status: text('status').notNull().default('draft'),
+  // Cross-app publishing to renaissance-events
+  publishedEventId: integer('publishedEventId'), // ID of the event in renaissance-events
   createdAt: integer('createdAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`).notNull(),
 });

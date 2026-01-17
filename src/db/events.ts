@@ -29,6 +29,7 @@ export interface Event {
   startTime: Date;
   endTime: Date;
   status: EventStatus;
+  publishedEventId: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -178,6 +179,7 @@ export async function getEventById(eventId: string): Promise<Event | null> {
     startTime: row.startTime,
     endTime: row.endTime,
     status: row.status as EventStatus,
+    publishedEventId: row.publishedEventId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -207,9 +209,30 @@ export async function getEventsByHostId(hostId: string): Promise<Event[]> {
     startTime: row.startTime,
     endTime: row.endTime,
     status: row.status as EventStatus,
+    publishedEventId: row.publishedEventId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }));
+}
+
+/**
+ * Update the publishedEventId for an event
+ */
+export async function updatePublishedEventId(
+  eventId: string,
+  publishedEventId: number
+): Promise<Event | null> {
+  const existing = await getEventById(eventId);
+  if (!existing) return null;
+  
+  const now = new Date();
+  
+  await db
+    .update(events)
+    .set({ publishedEventId, updatedAt: now })
+    .where(eq(events.id, eventId));
+  
+  return getEventById(eventId);
 }
 
 /**
