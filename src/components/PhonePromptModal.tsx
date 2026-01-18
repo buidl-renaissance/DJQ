@@ -201,7 +201,7 @@ interface PhonePromptModalProps {
 }
 
 export default function PhonePromptModal({ onComplete }: PhonePromptModalProps) {
-  const { user, updateUser, setNeedsPhone, refreshUser } = useUser();
+  const { user, setNeedsPhone, refreshUser } = useUser();
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
