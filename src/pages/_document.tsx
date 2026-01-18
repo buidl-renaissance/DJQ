@@ -33,17 +33,25 @@ export default class MyDocument extends Document {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://djq.builddetroit.xyz';
     
     return (
-      <Html lang="en">
+      <Html lang="en" style={{ backgroundColor: '#0A0A0A' }}>
         <Head>
           <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
           <link rel="icon" href="/favicon.ico" />
+          {/* Prevent white flash during page transitions */}
+          <style dangerouslySetInnerHTML={{ __html: `
+            html, body { 
+              background-color: #0A0A0A !important; 
+              margin: 0; 
+              padding: 0;
+            }
+          `}} />
           
           {/* Farcaster Mini App Identification */}
           <meta name="application-name" content="DJ Tap-In Queue" />
           <meta name="apple-mobile-web-app-title" content="DJ Tap-In Queue" />
           <link rel="manifest" href={`${appUrl}/.well-known/farcaster.json`} />
         </Head>
-        <body>
+        <body style={{ backgroundColor: '#0A0A0A', margin: 0, padding: 0 }}>
           <script
             dangerouslySetInnerHTML={{
               __html: `
