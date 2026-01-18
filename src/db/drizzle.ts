@@ -16,8 +16,16 @@ function getTursoClient() {
     return tursoClient;
   }
 
-  const url = process.env.TURSO_DATABASE_URL || 'file:./dev.sqlite3';
+  const useLocalDb = process.env.USE_LOCAL === 'true';
   const authToken = process.env.TURSO_DATABASE_AUTH_TOKEN;
+
+  // If USE_LOCAL is set, use local SQLite file
+  if (useLocalDb) {
+    tursoClient = createClient({ url: 'file:./dev.sqlite3' });
+    return tursoClient;
+  }
+
+  const url = process.env.TURSO_DATABASE_URL || 'file:./dev.sqlite3';
 
   // For local development, use file-based SQLite if no auth token
   if (authToken) {

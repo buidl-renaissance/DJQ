@@ -14,13 +14,14 @@ try {
 }
 
 // Construct dbCredentials - for Turso, we need both url and authToken
-const dbUrl = process.env.TURSO_DATABASE_URL;
+const useLocalDb = process.env.USE_LOCAL === 'true';
+const dbUrl = useLocalDb ? 'file:./dev.sqlite3' : process.env.TURSO_DATABASE_URL;
 const authToken = process.env.TURSO_DATABASE_AUTH_TOKEN;
 
 // For Turso, we need both URL and authToken
-// If using local SQLite, set TURSO_DATABASE_URL to 'file:./dev.sqlite3' and don't set TURSO_DATABASE_AUTH_TOKEN
+// If using local SQLite, set USE_LOCAL=true or TURSO_DATABASE_URL to 'file:./dev.sqlite3'
 if (!dbUrl) {
-  throw new Error('TURSO_DATABASE_URL environment variable is required');
+  throw new Error('TURSO_DATABASE_URL environment variable is required (or set USE_LOCAL=true)');
 }
 
 // For Turso remote databases, authToken is required
