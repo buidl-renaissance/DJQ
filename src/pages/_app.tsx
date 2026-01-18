@@ -4,6 +4,7 @@ import { ThemeProvider } from "styled-components";
 import { UserProvider, useUser } from "@/contexts/UserContext";
 import DeactivatedAccountScreen from "@/components/DeactivatedAccountScreen";
 import { theme } from "@/styles/theme";
+import { Analytics } from "@vercel/analytics/next";
 
 // Wrapper component that checks user status and shows deactivated screen if needed
 function AppContent({ Component, pageProps }: AppProps) {
@@ -32,6 +33,7 @@ export default function App(appProps: AppProps) {
   return (
     <UserProvider>
       <AppContent {...appProps} />
+      <Analytics />
     </UserProvider>
   );
 }

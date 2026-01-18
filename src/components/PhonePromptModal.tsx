@@ -367,7 +367,7 @@ export default function PhonePromptModal({ onComplete }: PhonePromptModalProps) 
           <ButtonGroup>
             <SubmitButton 
               type="submit" 
-              disabled={loading || (needsPin && (pin.length !== 4 || confirmPin.length !== 4))} 
+              disabled={loading || (!!needsPin && (pin.length !== 4 || confirmPin.length !== 4))} 
               $loading={loading}
             >
               {loading ? 'Saving...' : needsPin ? 'Complete Setup' : 'Save Phone Number'}
