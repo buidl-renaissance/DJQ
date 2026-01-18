@@ -1,8 +1,7 @@
 import Head from "next/head";
+import { useEffect, useState } from "react";
 import styled, { createGlobalStyle, ThemeProvider, DefaultTheme } from "styled-components";
-import { useEffect } from "react";
 import { useUser } from "@/contexts/UserContext";
-import Splash from "@/components/Splash";
 
 // Extend DefaultTheme to include our custom properties
 declare module 'styled-components' {
@@ -184,7 +183,8 @@ const SubHeading = styled.p`
   line-height: 1.6;
 `;
 
-const NeonButton = styled.button`
+const NeonButtonStyled = styled.a`
+  display: inline-block;
   font-family: ${({ theme }) => theme.fonts.heading};
   font-size: 1.2rem;
   font-weight: bold;
@@ -200,6 +200,7 @@ const NeonButton = styled.button`
   letter-spacing: 2px;
   transition: all 0.3s ease;
   box-shadow: 0 0 10px rgba(255, 45, 149, 0.5);
+  text-decoration: none;
   
   &:hover {
     background-color: rgba(255, 45, 149, 0.2);
@@ -227,6 +228,21 @@ const NeonButton = styled.button`
     left: 100%;
   }
 `;
+
+// Custom button component that navigates to app
+const NeonButton = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Replace navigation so homepage isn't in history
+    window.location.replace('/app');
+  };
+  
+  return (
+    <NeonButtonStyled href="/app" onClick={handleClick} style={style}>
+      {children}
+    </NeonButtonStyled>
+  );
+};
 
 const DarkSection = styled(Section)`
   background-color: ${({ theme }) => theme.colors.dark};
@@ -465,39 +481,39 @@ const FooterText = styled.p`
 
 export default function Home() {
   const { user, isLoading } = useUser();
+  const [mounted, setMounted] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
-  // Signal to Farcaster that the app is ready
+  // Mark as mounted after hydration
   useEffect(() => {
-    const callReady = async () => {
-      // Only run on client side
-      if (typeof window === 'undefined') return;
-      
-      try {
-        // Dynamically import the SDK (client-side only)
-        const { sdk } = await import("@farcaster/miniapp-sdk");
-        
-        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
-          console.log('✅ [Index] Calling sdk.actions.ready()');
-          await sdk.actions.ready();
-          console.log('✅ [Index] Successfully called ready()');
-        } else {
-          console.warn('⚠️ [Index] SDK not available or ready() not found');
-        }
-      } catch (error) {
-        console.error('❌ [Index] Error calling sdk.actions.ready():', error);
-      }
-    };
-
-    // Call ready after component mounts
-    callReady();
+    setMounted(true);
   }, []);
 
-  // Show splash screen while loading or for authenticated users
-  if (isLoading || user) {
+  // If user is authenticated, redirect to /app
+  useEffect(() => {
+    if (mounted && !isLoading && user) {
+      console.log('🏠 [INDEX] User authenticated, redirecting to /app');
+      setRedirecting(true);
+      window.location.replace('/app');
+    }
+  }, [user, isLoading, mounted]);
+
+  // Always show loading state on server and during initial client render
+  // This prevents hydration mismatch
+  if (!mounted || isLoading || redirecting || user) {
     return (
       <ThemeProvider theme={theme}>
         <GlobalStyle />
-        <Splash user={user} isLoading={isLoading} />
+        <Head>
+          <title>DJ Tap-In Queue</title>
+        </Head>
+        <div style={{ 
+          minHeight: '100vh', 
+          backgroundColor: '#0A0A0A',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }} />
       </ThemeProvider>
     );
   }

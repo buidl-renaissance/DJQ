@@ -81,7 +81,7 @@ export default function handler(
       name: 'DJQ',
       description: 'DJQ - Detroit DJ Community',
       iconUrl: `${APP_URL}/icon.png`,
-      homeUrl: APP_URL,
+      homeUrl: `${APP_URL}/app`,
       canonicalDomain: domain,
       // Recommended fields for better discovery and presentation
       imageUrl: `${APP_URL}/icon.png`,

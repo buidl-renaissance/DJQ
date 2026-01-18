@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { v4 as uuidv4 } from 'uuid';
 import { getUserByUsernameOnly, getUserById, upsertFarcasterAccount } from '@/db/user';
+import { db } from '@/db/drizzle';
+import { users } from '@/db/schema';
 
 /**
  * Authenticate user from Renaissance Mini App SDK context
@@ -69,6 +72,10 @@ export default async function handler(
               status: existingUser.status,
             },
           });
+        } else {
+          // Session user not found (deleted from DB) - clear invalid session
+          console.log('⚠️ [MINIAPP AUTH] Session user not found, clearing invalid session');
+          res.setHeader('Set-Cookie', 'user_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
         }
       }
       
@@ -98,19 +105,65 @@ export default async function handler(
     });
 
     if (!result) {
-      // No user found with this username - require phone verification
-      console.log('⚠️ [MINIAPP AUTH] No user found for username (case-insensitive lookup):', username);
+      // No user found with this username - create a new user with Renaissance data
+      console.log('🆕 [MINIAPP AUTH] Creating new user for username:', username);
+      
+      const id = uuidv4();
+      const now = new Date();
+      const newUser = {
+        id,
+        fid: fid || null,
+        username: username || null,
+        name: displayName || null,
+        pfpUrl: pfpUrl || null,
+        displayName: displayName || null,
+        profilePicture: pfpUrl || null,
+        accountAddress: accountAddress || null,
+        phone: null,
+        email: null,
+        pinHash: null,
+        failedPinAttempts: 0,
+        lockedAt: null,
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      };
+      
+      await db.insert(users).values(newUser);
+      
+      console.log('✅ [MINIAPP AUTH] Created new user:', {
+        userId: id,
+        username,
+        accountAddress,
+      });
+      
+      // Link Farcaster account if fid provided
+      if (fid) {
+        await upsertFarcasterAccount(id, {
+          fid,
+          username: username || '',
+        });
+      }
+      
+      // Set session cookie
+      res.setHeader('Set-Cookie', `user_session=${id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+      
       return res.status(200).json({
-        success: false,
+        success: true,
         needsPhone: true,
-        message: 'Please enter your phone number to continue.',
-        // Pass along the Renaissance data for later linking
-        pendingUserData: {
+        needsPin: true,
+        user: {
+          id,
           fid,
           username,
-          displayName,
+          phone: null,
+          name: displayName,
           pfpUrl,
+          displayName,
+          profilePicture: pfpUrl,
           accountAddress,
+          hasPin: false,
+          status: 'active',
         },
       });
     }
@@ -153,6 +206,13 @@ export default async function handler(
     });
   } catch (error) {
     console.error('Error authenticating mini app user:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    
+    // Clear session cookie on error to allow reauth
+    res.setHeader('Set-Cookie', 'user_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+    
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      shouldReauth: true,
+    });
   }
 }

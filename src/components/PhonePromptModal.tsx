@@ -201,14 +201,29 @@ interface PhonePromptModalProps {
 }
 
 export default function PhonePromptModal({ onComplete }: PhonePromptModalProps) {
-  const { user, updateUser, setNeedsPhone } = useUser();
+  const { user, updateUser, setNeedsPhone, refreshUser } = useUser();
   const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Check if user needs to set a PIN (new users from Renaissance)
+  const needsPin = user && !user.hasPin && !user.pinHash;
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
     setPhone(formatted);
+  };
+
+  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setPin(value);
+  };
+
+  const handleConfirmPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setConfirmPin(value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -225,31 +240,62 @@ export default function PhonePromptModal({ onComplete }: PhonePromptModalProps) 
       return;
     }
 
+    // Validate PIN if needed
+    if (needsPin) {
+      if (pin.length !== 4) {
+        setError('PIN must be exactly 4 digits');
+        setLoading(false);
+        return;
+      }
+      if (pin !== confirmPin) {
+        setError('PINs do not match');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
-      const res = await fetch('/api/user/update', {
+      // First update phone number
+      const phoneRes = await fetch('/api/user/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: normalizedPhone }),
         credentials: 'include',
       });
 
-      const data = await res.json();
+      const phoneData = await phoneRes.json();
 
-      if (!res.ok) {
-        setError(data.error || 'Failed to save phone number');
+      if (!phoneRes.ok) {
+        setError(phoneData.error || 'Failed to save phone number');
         setLoading(false);
         return;
       }
 
-      // Update user context with new phone
-      if (data.user) {
-        updateUser({ phone: data.user.phone });
+      // If user needs PIN, set it
+      if (needsPin) {
+        const pinRes = await fetch('/api/user/set-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin }),
+          credentials: 'include',
+        });
+
+        const pinData = await pinRes.json();
+
+        if (!pinRes.ok) {
+          setError(pinData.error || 'Failed to set PIN');
+          setLoading(false);
+          return;
+        }
       }
+
+      // Refresh user to get updated data
+      await refreshUser();
 
       setNeedsPhone(false);
       onComplete?.();
     } catch (err) {
-      console.error('Error saving phone:', err);
+      console.error('Error saving profile:', err);
       setError('Something went wrong. Please try again.');
       setLoading(false);
     }
@@ -267,7 +313,10 @@ export default function PhonePromptModal({ onComplete }: PhonePromptModalProps) 
       <Modal>
         <Title>Welcome!</Title>
         <Subtitle>
-          Add your phone number so hosts can reach you about bookings
+          {needsPin 
+            ? 'Complete your profile to continue'
+            : 'Add your phone number so hosts can reach you about bookings'
+          }
         </Subtitle>
         
         <form onSubmit={handleSubmit}>
@@ -284,14 +333,50 @@ export default function PhonePromptModal({ onComplete }: PhonePromptModalProps) 
               autoFocus
             />
           </FormGroup>
+
+          {needsPin && (
+            <>
+              <FormGroup>
+                <Label>Create 4-Digit PIN</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={pin}
+                  onChange={handlePinChange}
+                  placeholder="0000"
+                  maxLength={4}
+                  autoComplete="off"
+                />
+              </FormGroup>
+
+              <FormGroup>
+                <Label>Confirm PIN</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={confirmPin}
+                  onChange={handleConfirmPinChange}
+                  placeholder="0000"
+                  maxLength={4}
+                  autoComplete="off"
+                />
+              </FormGroup>
+            </>
+          )}
           
           <ButtonGroup>
-            <SubmitButton type="submit" disabled={loading} $loading={loading}>
-              {loading ? 'Saving...' : 'Save Phone Number'}
+            <SubmitButton 
+              type="submit" 
+              disabled={loading || (needsPin && (pin.length !== 4 || confirmPin.length !== 4))} 
+              $loading={loading}
+            >
+              {loading ? 'Saving...' : needsPin ? 'Complete Setup' : 'Save Phone Number'}
             </SubmitButton>
-            <SkipButton type="button" onClick={handleSkip}>
-              Skip for now
-            </SkipButton>
+            {!needsPin && (
+              <SkipButton type="button" onClick={handleSkip}>
+                Skip for now
+              </SkipButton>
+            )}
           </ButtonGroup>
         </form>
       </Modal>

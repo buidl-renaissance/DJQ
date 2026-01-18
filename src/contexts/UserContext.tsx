@@ -256,10 +256,24 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         const errorText = await authResponse.text();
         console.error('❌ Failed to authenticate with SDK user:', authResponse.status, errorText);
+        
+        // Clear cached user data on auth failure to allow reauth
+        console.log('🧹 Clearing cached user data due to auth failure');
+        setUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('djq_user');
+        }
         return false;
       }
     } catch (err) {
       console.error('❌ Error authenticating from SDK:', err);
+      
+      // Clear cached user data on error to allow reauth
+      console.log('🧹 Clearing cached user data due to auth error');
+      setUser(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('djq_user');
+      }
       return false;
     }
     return false;
