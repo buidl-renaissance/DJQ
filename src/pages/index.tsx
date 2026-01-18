@@ -482,25 +482,32 @@ const FooterText = styled.p`
 export default function Home() {
   const { user, isLoading } = useUser();
   const [mounted, setMounted] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
+  const [checkComplete, setCheckComplete] = useState(false);
 
   // Mark as mounted after hydration
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // If user is authenticated, redirect to /app
+  // Check if user has completed profile (has phone number)
   useEffect(() => {
-    if (mounted && !isLoading && user) {
-      console.log('🏠 [INDEX] User authenticated, redirecting to /app');
-      setRedirecting(true);
+    if (!mounted || isLoading) return;
+    
+    // User has completed profile (has phone) → redirect to /app
+    if (user && user.phone) {
+      console.log('🏠 [INDEX] User has phone, redirecting to /app');
       window.location.replace('/app');
+      return;
     }
-  }, [user, isLoading, mounted]);
+    
+    // No user, or user without phone → show marketing page
+    console.log('🏠 [INDEX] No completed profile, showing marketing page');
+    setCheckComplete(true);
+  }, [mounted, isLoading, user]);
 
   // Always show loading state on server and during initial client render
   // This prevents hydration mismatch
-  if (!mounted || isLoading || redirecting || user) {
+  if (!mounted || isLoading || !checkComplete || (user && user.phone)) {
     return (
       <ThemeProvider theme={theme}>
         <GlobalStyle />
