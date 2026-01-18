@@ -142,6 +142,7 @@ export async function createEvent(input: CreateEventInput): Promise<Event> {
     startTime: input.startTime,
     endTime: input.endTime,
     status: 'draft' as EventStatus,
+    publishedEventId: null,
     createdAt: now,
     updatedAt: now,
   };
