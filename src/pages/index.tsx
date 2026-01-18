@@ -1,4 +1,5 @@
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import styled, { createGlobalStyle, ThemeProvider, DefaultTheme } from "styled-components";
 import { useUser } from "@/contexts/UserContext";
@@ -230,11 +231,11 @@ const NeonButtonStyled = styled.a`
 `;
 
 // Custom button component that navigates to app
-const NeonButton = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => {
+const NeonButton = ({ children, style, router }: { children: React.ReactNode; style?: React.CSSProperties; router: ReturnType<typeof useRouter> }) => {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     // Replace navigation so homepage isn't in history
-    window.location.replace('/app');
+    router.replace('/app');
   };
   
   return (
@@ -480,6 +481,7 @@ const FooterText = styled.p`
 `;
 
 export default function Home() {
+  const router = useRouter();
   const { user, isLoading } = useUser();
   const [mounted, setMounted] = useState(false);
   const [checkComplete, setCheckComplete] = useState(false);
@@ -496,14 +498,14 @@ export default function Home() {
     // User has completed profile (has phone) → redirect to /app
     if (user && user.phone) {
       console.log('🏠 [INDEX] User has phone, redirecting to /app');
-      window.location.replace('/app');
+      router.replace('/app');
       return;
     }
     
     // No user, or user without phone → show marketing page
     console.log('🏠 [INDEX] No completed profile, showing marketing page');
     setCheckComplete(true);
-  }, [mounted, isLoading, user]);
+  }, [mounted, isLoading, user, router]);
 
   // Always show loading state on server and during initial client render
   // This prevents hydration mismatch
@@ -547,7 +549,7 @@ export default function Home() {
             Your city&apos;s dopest open decks experience — tap in for a 20-minute set,
             link up for back-to-backs, and keep the party rolling.
           </SubHeading>
-          <NeonButton>
+          <NeonButton router={router}>
             Join the DJ Queue
           </NeonButton>
         </HeroSection>
@@ -713,7 +715,7 @@ export default function Home() {
             Whether you&apos;re a seasoned selector or just starting out, the Tap-In
             Queue is your moment to shine.
           </SubHeading>
-          <NeonButton style={{ marginBottom: "2rem" }}>
+          <NeonButton router={router} style={{ marginBottom: "2rem" }}>
             Sign Up Now
           </NeonButton>
           <FeatureText style={{ maxWidth: "600px", margin: "0 auto" }}>
