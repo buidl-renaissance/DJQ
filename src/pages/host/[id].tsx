@@ -366,6 +366,48 @@ const ShareFeedback = styled.span`
   margin-left: 0.5rem;
 `;
 
+const PromoteButton = styled.button<{ $promoted?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background-color: ${({ $promoted }) => $promoted ? 'rgba(138, 43, 226, 0.1)' : 'transparent'};
+  color: ${({ $promoted }) => $promoted ? '#a855f7' : '#a855f7'};
+  border: 2px solid ${({ $promoted }) => $promoted ? 'rgba(138, 43, 226, 0.5)' : 'rgba(138, 43, 226, 0.4)'};
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 0.75rem;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover:not(:disabled) {
+    background-color: rgba(138, 43, 226, 0.15);
+    box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const PromoteIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
+  </svg>
+);
+
 const ArrowLeftIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <line x1="19" y1="12" x2="5" y2="12" />
@@ -410,6 +452,7 @@ interface EventData {
   maxConsecutiveSlots: number;
   allowB2B: boolean;
   status: string;
+  publishedEventId: number | null;
 }
 
 export default function ManageEventPage() {
@@ -618,6 +661,36 @@ export default function ManageEventPage() {
     } catch (err) {
       console.error('Failed to upload image:', err);
       throw err;
+    }
+  };
+
+  const handlePromote = async () => {
+    setActionLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/events/${id}/publish-event`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to promote event');
+      }
+
+      const result = await response.json();
+      
+      // Update local event state with the publishedEventId
+      if (event) {
+        setEvent({ ...event, publishedEventId: result.publishedEventId });
+      }
+      
+      setShareFeedback('Promoted!');
+      setTimeout(() => setShareFeedback(null), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to promote event');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -865,11 +938,23 @@ export default function ManageEventPage() {
         <Section>
           <SectionTitle>Actions</SectionTitle>
           {(event.status === 'published' || event.status === 'active') && (
-            <ShareButton onClick={handleShare}>
-              <ShareIcon />
-              Share Event
-              {shareFeedback && <ShareFeedback>{shareFeedback}</ShareFeedback>}
-            </ShareButton>
+            <>
+              <ShareButton onClick={handleShare}>
+                <ShareIcon />
+                Share Event
+                {shareFeedback && <ShareFeedback>{shareFeedback}</ShareFeedback>}
+              </ShareButton>
+              <PromoteButton
+                onClick={handlePromote}
+                disabled={actionLoading}
+                $promoted={!!event.publishedEventId}
+              >
+                <PromoteIcon />
+                {event.publishedEventId 
+                  ? 'Promoted to Renaissance Events' 
+                  : 'Promote to Renaissance Events'}
+              </PromoteButton>
+            </>
           )}
           <ActionButton
             $variant="secondary"
