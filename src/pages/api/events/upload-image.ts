@@ -1,6 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import sharp from 'sharp';
 import { uploadFile, generateEventImageKey, isStorageConfigured, extractKeyFromUrl, deleteFile } from '@/lib/storage';
 import { getEventById, updateEvent } from '@/db/events';
+
+// Maximum image width (height will scale proportionally)
+const MAX_IMAGE_WIDTH = 1200;
 
 // Disable body parsing to handle raw file data
 export const config = {
@@ -210,14 +214,43 @@ export default async function handler(
       }
     }
 
-    // Generate unique key for the file
-    const extension = getExtension(contentType);
-    const key = generateEventImageKey(eventId, extension);
+    // Process image: resize to max width while maintaining aspect ratio
+    console.log(`📁 Processing event image - eventId: ${eventId}, originalSize: ${buffer.length} bytes`);
     
-    console.log(`📁 Uploading event image - eventId: ${eventId}, key: ${key}, contentType: ${contentType}`);
+    // Get image metadata to check dimensions
+    const metadata = await sharp(buffer).metadata();
+    const needsResize = metadata.width && metadata.width > MAX_IMAGE_WIDTH;
+    
+    let processedBuffer: Buffer;
+    let outputContentType: string;
+    
+    if (needsResize) {
+      // Resize and convert to JPEG for consistent output
+      processedBuffer = await sharp(buffer)
+        .resize(MAX_IMAGE_WIDTH, null, {
+          fit: 'inside', // Maintain aspect ratio, fit within bounds
+          withoutEnlargement: true, // Don't upscale smaller images
+        })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      outputContentType = 'image/jpeg';
+      console.log(`📁 Resized image from ${metadata.width}x${metadata.height} to max width ${MAX_IMAGE_WIDTH}, newSize: ${processedBuffer.length} bytes`);
+    } else {
+      // Image is small enough, just optimize it
+      processedBuffer = await sharp(buffer)
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      outputContentType = 'image/jpeg';
+      console.log(`📁 Optimized image (no resize needed), newSize: ${processedBuffer.length} bytes`);
+    }
+
+    // Generate unique key for the file (always .jpg since we convert to JPEG)
+    const key = generateEventImageKey(eventId, 'jpg');
+    
+    console.log(`📁 Uploading event image - eventId: ${eventId}, key: ${key}`);
 
     // Upload to DigitalOcean Spaces
-    const uploadResult = await uploadFile(buffer, key, contentType);
+    const uploadResult = await uploadFile(processedBuffer, key, outputContentType);
     
     console.log(`📁 Upload result - url: ${uploadResult.url}`);
 
