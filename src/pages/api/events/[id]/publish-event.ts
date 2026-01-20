@@ -5,6 +5,7 @@ import { getEventById, updatePublishedEventId } from '@/db/events';
 import { eq } from 'drizzle-orm';
 
 const RENAISSANCE_EVENTS_API_URL = process.env.RENAISSANCE_EVENTS_API_URL || 'http://localhost:3002';
+const DJQ_PUBLIC_URL = process.env.DJQ_PUBLIC_URL || process.env.NEXT_PUBLIC_BASE_URL || '';
 
 /**
  * POST /api/events/[id]/publish-event
@@ -88,6 +89,7 @@ export default async function handler(
       eventType: 'renaissance',
       source: 'djq',
       sourceId: event.id,
+      sourceUrl: DJQ_PUBLIC_URL ? `${DJQ_PUBLIC_URL}/events/${event.id}` : undefined,
     };
 
     let publishedEventId: number;
