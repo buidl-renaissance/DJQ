@@ -89,7 +89,7 @@ export default async function handler(
       eventType: 'renaissance',
       source: 'djq',
       sourceId: event.id,
-      sourceUrl: DJQ_PUBLIC_URL ? `${DJQ_PUBLIC_URL}/events/${event.id}` : undefined,
+      sourceUrl: DJQ_PUBLIC_URL ? `${DJQ_PUBLIC_URL}/events/${event.id}` : null,
     };
 
     let publishedEventId: number;
