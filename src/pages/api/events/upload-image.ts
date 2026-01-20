@@ -149,17 +149,6 @@ function splitBuffer(buffer: Buffer, boundary: Buffer): Buffer[] {
   return parts;
 }
 
-// Get file extension from content type
-function getExtension(contentType: string): string {
-  const map: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/gif': 'gif',
-    'image/webp': 'webp',
-  };
-  return map[contentType] || 'jpg';
-}
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ResponseData>
