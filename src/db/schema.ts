@@ -69,6 +69,7 @@ export const events = sqliteTable('events', {
   hostId: text('hostId').notNull().references(() => users.id),
   title: text('title').notNull(),
   description: text('description'),
+  location: text('location'), // Event location/venue
   imageUrl: text('imageUrl'), // Event cover image
   bookingType: text('bookingType').notNull().default('open_decks'),
   slotDurationMinutes: integer('slotDurationMinutes').notNull().default(20),

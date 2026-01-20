@@ -19,6 +19,7 @@ export interface Event {
   hostId: string;
   title: string;
   description: string | null;
+  location: string | null;
   imageUrl: string | null;
   bookingType: BookingType;
   slotDurationMinutes: SlotDuration;
@@ -49,6 +50,7 @@ export interface CreateEventInput {
   hostId: string;
   title: string;
   description?: string;
+  location?: string;
   imageUrl?: string;
   bookingType?: BookingType;
   slotDurationMinutes?: SlotDuration;
@@ -63,6 +65,7 @@ export interface CreateEventInput {
 export interface UpdateEventInput {
   title?: string;
   description?: string;
+  location?: string;
   imageUrl?: string;
   bookingType?: BookingType;
   slotDurationMinutes?: SlotDuration;
@@ -132,6 +135,7 @@ export async function createEvent(input: CreateEventInput): Promise<Event> {
     hostId: input.hostId,
     title: input.title,
     description: input.description ?? null,
+    location: input.location ?? null,
     imageUrl: input.imageUrl ?? null,
     bookingType: input.bookingType ?? 'open_decks',
     slotDurationMinutes: slotDuration,
@@ -170,6 +174,7 @@ export async function getEventById(eventId: string): Promise<Event | null> {
     hostId: row.hostId,
     title: row.title,
     description: row.description,
+    location: row.location,
     imageUrl: row.imageUrl,
     bookingType: row.bookingType as BookingType,
     slotDurationMinutes: row.slotDurationMinutes as SlotDuration,
@@ -200,6 +205,7 @@ export async function getEventsByHostId(hostId: string): Promise<Event[]> {
     hostId: row.hostId,
     title: row.title,
     description: row.description,
+    location: row.location,
     imageUrl: row.imageUrl,
     bookingType: row.bookingType as BookingType,
     slotDurationMinutes: row.slotDurationMinutes as SlotDuration,
@@ -251,6 +257,7 @@ export async function updateEvent(
   
   if (input.title !== undefined) updateData.title = input.title;
   if (input.description !== undefined) updateData.description = input.description;
+  if (input.location !== undefined) updateData.location = input.location;
   if (input.imageUrl !== undefined) updateData.imageUrl = input.imageUrl;
   if (input.bookingType !== undefined) updateData.bookingType = input.bookingType;
   if (input.slotDurationMinutes !== undefined) {

@@ -30,6 +30,7 @@ export default async function handler(
           return {
             id: event.id,
             title: event.title,
+            location: event.location,
             imageUrl: event.imageUrl,
             eventDate: event.eventDate,
             startTime: event.startTime,
@@ -57,6 +58,7 @@ export default async function handler(
         username,
         title,
         description,
+        location,
         imageUrl,
         eventDate,
         startTime,
@@ -99,6 +101,7 @@ export default async function handler(
         hostId,
         title,
         description,
+        location,
         imageUrl,
         eventDate: new Date(eventDate),
         startTime: new Date(startTime),

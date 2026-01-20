@@ -61,12 +61,19 @@ export default async function handler(
       username: user.username,
     };
 
+    // Ensure endTime is after startTime (handle overnight events)
+    let endTime = event.endTime;
+    if (endTime <= event.startTime) {
+      // End time is on the next day
+      endTime = new Date(endTime.getTime() + 24 * 60 * 60 * 1000);
+    }
+
     // Build the event data to send to renaissance-events
     const eventData = {
       name: event.title,
-      location: 'TBD', // DJQ events don't have location by default
+      location: event.location || 'TBD',
       startTime: event.startTime.toISOString(),
-      endTime: event.endTime.toISOString(),
+      endTime: endTime.toISOString(),
       imageUrl: event.imageUrl || '',
       metadata: {
         description: event.description || `DJ event hosted by ${hostInfo.name}`,

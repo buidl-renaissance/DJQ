@@ -147,6 +147,7 @@ export default async function handler(
       
       if (updateData.title !== undefined) updateInput.title = updateData.title;
       if (updateData.description !== undefined) updateInput.description = updateData.description;
+      if (updateData.location !== undefined) updateInput.location = updateData.location;
       if (updateData.imageUrl !== undefined) updateInput.imageUrl = updateData.imageUrl;
       if (updateData.allowConsecutiveSlots !== undefined) updateInput.allowConsecutiveSlots = updateData.allowConsecutiveSlots;
       if (updateData.maxConsecutiveSlots !== undefined) updateInput.maxConsecutiveSlots = updateData.maxConsecutiveSlots;

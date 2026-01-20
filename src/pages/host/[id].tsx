@@ -443,6 +443,7 @@ interface EventData {
   id: string;
   title: string;
   description: string | null;
+  location: string | null;
   imageUrl: string | null;
   eventDate: string;
   startTime: string;
@@ -709,6 +710,7 @@ export default function ManageEventPage() {
         username,
         title: data.title,
         description: data.description || null,
+        location: data.location || null,
         imageUrl: data.imageUrl,
         allowConsecutiveSlots: data.allowConsecutiveSlots,
         maxConsecutiveSlots: data.maxConsecutiveSlots,
@@ -718,7 +720,12 @@ export default function ManageEventPage() {
       // Include date/time changes for all events
       const eventDate = new Date(`${data.eventDate}T00:00:00`);
       const startTime = new Date(`${data.eventDate}T${data.startTime}`);
-      const endTime = new Date(`${data.eventDate}T${data.endTime}`);
+      let endTime = new Date(`${data.eventDate}T${data.endTime}`);
+      
+      // If end time is before start time, it means the event goes past midnight
+      if (endTime <= startTime) {
+        endTime = new Date(endTime.getTime() + 24 * 60 * 60 * 1000); // Add one day
+      }
 
       updatePayload.eventDate = eventDate.toISOString();
       updatePayload.startTime = startTime.toISOString();
@@ -826,6 +833,7 @@ export default function ManageEventPage() {
     return {
       title: event.title,
       description: event.description || '',
+      location: event.location || '',
       imageUrl: event.imageUrl,
       eventDate: eventDateObj.toISOString().split('T')[0],
       startTime: startTimeObj.toTimeString().slice(0, 5),
@@ -884,6 +892,7 @@ export default function ManageEventPage() {
           <EventTitle>{event.title}</EventTitle>
           <EventMeta>{formatDate(event.eventDate)}</EventMeta>
           <EventMeta>{formatTime(event.startTime)} - {formatTime(event.endTime)}</EventMeta>
+          {event.location && <EventMeta>{event.location}</EventMeta>}
         </EventHeader>
 
         <Section>

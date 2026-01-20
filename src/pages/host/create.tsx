@@ -160,7 +160,12 @@ export default function CreateEventPage() {
       // Combine date and time into ISO strings
       const eventDate = new Date(`${data.eventDate}T00:00:00`);
       const startTime = new Date(`${data.eventDate}T${data.startTime}`);
-      const endTime = new Date(`${data.eventDate}T${data.endTime}`);
+      let endTime = new Date(`${data.eventDate}T${data.endTime}`);
+      
+      // If end time is before start time, it means the event goes past midnight
+      if (endTime <= startTime) {
+        endTime = new Date(endTime.getTime() + 24 * 60 * 60 * 1000); // Add one day
+      }
 
       // Get username from SDK context or user context
       const username = sdkUsername || user?.username;
@@ -175,6 +180,7 @@ export default function CreateEventPage() {
           username,
           title: data.title,
           description: data.description || null,
+          location: data.location || null,
           eventDate: eventDate.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),

@@ -283,10 +283,18 @@ const ClockIcon = () => (
   </svg>
 );
 
+const LocationIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+);
+
 interface EventData {
   id: string;
   title: string;
   description: string | null;
+  location: string | null;
   hostId: string;
   eventDate: string;
   startTime: string;
@@ -572,6 +580,12 @@ export default function EventDetailPage() {
               <ClockIcon />
               {formatTime(event.startTime)} - {formatTime(event.endTime)}
             </MetaItem>
+            {event.location && (
+              <MetaItem>
+                <LocationIcon />
+                {event.location}
+              </MetaItem>
+            )}
           </EventMeta>
 
           <BadgeContainer>

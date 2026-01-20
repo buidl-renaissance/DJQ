@@ -297,6 +297,7 @@ const Button = styled.button<{ $variant: 'primary' | 'secondary' }>`
 export interface EventFormData {
   title: string;
   description: string;
+  location: string;
   imageUrl: string | null;
   eventDate: string;
   startTime: string;
@@ -334,6 +335,7 @@ export default function EventForm({
   const [formData, setFormData] = useState<EventFormData>({
     title: initialData?.title || '',
     description: initialData?.description || '',
+    location: initialData?.location || '',
     imageUrl: initialData?.imageUrl || null,
     eventDate: initialData?.eventDate || '',
     startTime: initialData?.startTime || '',
@@ -359,6 +361,7 @@ export default function EventForm({
       setFormData({
         title: initialData.title || '',
         description: initialData.description || '',
+        location: initialData.location || '',
         imageUrl: initialData.imageUrl || null,
         eventDate: initialData.eventDate || '',
         startTime: initialData.startTime || '',
@@ -370,7 +373,7 @@ export default function EventForm({
       });
       setImagePreview(initialData.imageUrl || null);
     }
-  }, [initialData?.eventDate, initialData?.startTime, initialData?.endTime, initialData?.title, initialData?.description, initialData?.imageUrl, initialData?.slotDurationMinutes, initialData?.allowConsecutiveSlots, initialData?.maxConsecutiveSlots, initialData?.allowB2B]);
+  }, [initialData?.eventDate, initialData?.startTime, initialData?.endTime, initialData?.title, initialData?.description, initialData?.location, initialData?.imageUrl, initialData?.slotDurationMinutes, initialData?.allowConsecutiveSlots, initialData?.maxConsecutiveSlots, initialData?.allowB2B]);
 
   useEffect(() => {
     if (formData.startTime && formData.endTime && formData.eventDate) {
@@ -474,6 +477,16 @@ export default function EventForm({
           placeholder="Tell DJs what to expect..."
           value={formData.description}
           onChange={(e) => handleChange('description', e.target.value)}
+        />
+      </FormGroup>
+
+      <FormGroup>
+        <Label>Location</Label>
+        <Input
+          type="text"
+          placeholder="e.g., The Venue, 123 Main St"
+          value={formData.location}
+          onChange={(e) => handleChange('location', e.target.value)}
         />
       </FormGroup>
 
