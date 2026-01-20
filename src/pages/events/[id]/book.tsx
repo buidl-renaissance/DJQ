@@ -306,7 +306,7 @@ interface EventData {
   status: string;
 }
 
-export default function EventDetailPage() {
+export default function BookEventPage() {
   const router = useRouter();
   const { id } = router.query;
   const { user } = useUser();
@@ -464,7 +464,7 @@ export default function EventDetailPage() {
     // If user is not logged in, redirect to login with return URL including selected slots
     if (!user) {
       const slotsParam = selectedSlotIds.join(',');
-      const returnUrl = encodeURIComponent(`/events/${id}?slots=${slotsParam}`);
+      const returnUrl = encodeURIComponent(`/events/${id}/book?slots=${slotsParam}`);
       router.push(`/login?redirect=${returnUrl}`);
       return;
     }
@@ -561,11 +561,11 @@ export default function EventDetailPage() {
   }
 
   return (
-    <AppLayout title={`${event.title} | DJ Tap-In Queue`}>
+    <AppLayout title={`Book ${event.title} | DJ Tap-In Queue`}>
       <PageContainer>
-        <BackButton onClick={() => router.push('/events')}>
+        <BackButton onClick={() => router.push(`/events/${id}`)}>
           <ArrowLeftIcon />
-          Back to Events
+          Back to Event
         </BackButton>
 
         <EventHeader>
@@ -597,21 +597,9 @@ export default function EventDetailPage() {
           </BadgeContainer>
         </EventHeader>
 
-        {event.description && (
-          <Section>
-            <SectionTitle>About</SectionTitle>
-            <p style={{ color: 'rgba(224, 224, 224, 0.7)', fontSize: '0.85rem', margin: 0 }}>
-              {event.description}
-            </p>
-          </Section>
-        )}
-
         <Section>
-          <SectionTitle>Book Your Set</SectionTitle>
+          <SectionTitle>Select Your Set Time</SectionTitle>
           
-          {/* Selection shown inline in slot grid */}
-
-          {/* Always show all slots - booked and available */}
           <SlotGridContainer>
             <SlotGrid
               slots={slots}
